@@ -1,0 +1,59 @@
+"""Regenerate the public slash reference from the actual command definitions."""
+
+from pathlib import Path
+import discord
+from ua_bot.commands import MISSING, SPECS
+
+
+def main():
+    types = {str:'text',int:'integer',bool:'true/false',discord.Member:'player',discord.Role:'role'}
+    lines = ['# Public slash-command reference','',
+             f'The bot provides {len(SPECS)} slash commands. Use them inside your game server. Discord presents arguments as selectable fields; the examples in the guides show their names and values.','',
+             'Commands described as GM require the creator or configured GM role. `/gm config` requires the creator. Errors and personal sheets/help are private where appropriate; battle actions and official changes are public.','',
+             'The bot handles one waiting tracked roll per server. While it waits, `/resolve`, `/pending`, `/faq`, sheet/status/list commands, and permitted GM recovery tools are available.','']
+    group = None
+    for spec in SPECS:
+        root = spec.path.split()[0]
+        if root != group:
+            group = root
+            lines += [f'## /{root}','']
+        lines += [f'### /{spec.path}','',spec.description+'.','']
+        if spec.options:
+            lines += ['| Argument | Required/default | Type or choices | Meaning |',
+                      '|---|---|---|---|']
+            for o in sorted(spec.options,key=lambda x:x.default is not MISSING):
+                default = 'Required' if o.default is MISSING else 'Optional; empty' if o.default in ['',None] else f'Default: `{str(o.default).lower() if isinstance(o.default,bool) else o.default}`'
+                values = ', '.join('`'+str(v)+'`' for v in o.choices) if o.choices else types.get(o.annotation,'text')
+                description = o.description.replace('|','\\|').replace('\n',' ')
+                lines.append(f'| `{o.name}` | {default} | {values} | {description} |')
+            lines.append('')
+        else:
+            lines += ['No arguments.','']
+        if spec.special in {'create','edit','quirk'}:
+            lines += ['Opens a guided form; submit that form to save.','']
+        if spec.private:
+            lines += ['Response is private by default.','']
+    lines += ['## Values and limits','',
+              '- Core stat dice are d6, d8, d10, and d12; starting assignment is d10, d8, d8, d6.',
+              '- Hero Health is 0–6; Energy is 0–3. Zero Health means Down.',
+              '- Custom dice: 1–1,000,000,000 numbered sides; up to 100 dice and 20 expression terms per command.',
+              '- Named custom dice use JSON arrays of 1–1000 integer or text faces. Repeated faces add weight. Integers may be negative, zero, or positive within ±1 billion; labels have 1–40 characters.',
+              '- Named dice use lowercase IDs beginning with a letter, followed by letters, digits, or underscores, up to 32 characters. Example: `/dice create name:weather faces:["sun","rain","rain","storm"]`, then `/dice roll expression:1d[weather]`.',
+              '- Keep-high/low requires a single positive numeric dice pool, without modifiers. Dice containing any text faces cannot use keep-high/low, subtraction, or numeric modifiers, including mixed number/text dice. Text results have no numeric total.',
+              '- A server holds up to 100 named dice. Creating an existing name replaces its faces; removing it affects future rolls.',
+              '- Custom hero trackers hold up to 20 names with values up to 120 characters; they are notes/manual counters on the sheet. Leave the value blank to delete a tracker and free its slot.',
+              '- A battle supports up to 20 participants, 25 zones, 25 enemies, and 20 progress objectives. IDs for zones/objectives use up to 32 letters, digits, underscores, or hyphens.',
+              '- Enemy Health corrections: 0–10000; damage: 0–20; action count: 1 or 2. Objective/Danger goals: 1–100.',
+              '- Weekly reset: weekday 0=Monday through 6=Sunday; local hour 0–23. Use a timezone name such as America/New_York.',
+              '- Move/Talent/item choices are limited to learned and GM-approved options. Custom move names describe the same mechanical template.',
+              '- Resource used flags accept 0 for available and 1 for spent. Training corrections accept 0–10000.',
+              '- /faq searches written answers, browses topics, or accepts an exact FAQ ID. Replies are private unless share:true is selected. It is available before character creation and while a roll waits.',
+              '- GMs can save up to 50 custom FAQs per server with /gm faq-add; using an existing custom ID updates it. Questions are 1–150 characters, answers 1–2000, and IDs are up to 32 characters. /gm faq-remove removes custom answers; core rule IDs are protected.',
+              '', 'See the player handbook for the complete rules and the GM guide for setup and examples.','']
+    output = Path(__file__).resolve().parent/'docs'/'COMMAND_REFERENCE.md'
+    output.write_text('\n'.join(lines),encoding='utf-8')
+    print(f'Generated public reference for {len(SPECS)} commands.')
+
+
+if __name__ == '__main__':
+    main()
