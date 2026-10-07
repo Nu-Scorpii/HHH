@@ -61,12 +61,37 @@ def test_each_slash_operation_matches_engine_arguments(world):
         signature.bind(None,**arguments)
 
 
-def test_dispatch_saves_a_roll_and_ownership_is_enforced_by_buttons(world):
+def test_gateway_events_reach_handlers_and_waiters_without_running_game_commands(world):
+    async def run():
+        async with HeroBot(world.game) as bot:
+            events = [('connect', ()), ('ready', ()),
+                      ('message', (SimpleNamespace(content='hello'),)),
+                      ('interaction', (interaction(),))]
+            for event, arguments in events:
+                handler = AsyncMock()
+                setattr(bot, 'on_' + event, handler)
+                waiter = asyncio.create_task(bot.wait_for(event, timeout=1))
+                await asyncio.sleep(0)
+                try:
+                    # Discord calls this synchronously when Gateway events arrive.
+                    assert bot.dispatch(event, *arguments) is None
+                    received = await waiter
+                    assert received is (arguments[0] if arguments else None)
+                    await asyncio.sleep(0)
+                    handler.assert_awaited_once_with(*arguments)
+                finally:
+                    if not waiter.done():
+                        waiter.cancel()
+                        await asyncio.gather(waiter, return_exceptions=True)
+    asyncio.run(run())
+
+
+def test_command_saves_a_roll_and_ownership_is_enforced_by_buttons(world):
     async def run():
         world.create()
         bot = HeroBot(world.game)
         first = interaction()
-        assert await bot.dispatch(first,'check',stat='power',method='Lift debris')
+        assert await bot.execute_command(first,'check',stat='power',method='Lift debris')
         first.response.defer.assert_awaited_once_with(ephemeral=False, thinking=True)
         options = first.edit_original_response.call_args.kwargs
         view = options['view']

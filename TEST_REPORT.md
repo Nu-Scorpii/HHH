@@ -2,7 +2,7 @@
 
 Checked October 7, 2026 with Python 3.12 and the pinned dependencies.
 
-**147 automated tests passed.** The real Discord application-command tree serialized successfully: **88 slash commands across 20 root commands**. `pip check` reports no broken requirements. Offline checks made no Discord network login.
+**148 automated tests passed.** The real Discord application-command tree serialized successfully: **88 slash commands across 20 root commands**. `pip check` reports no broken requirements. Offline checks made no Discord network login.
 
 The Railway TOML parsed successfully. The real `bot.pyz` passed offline startup from an isolated directory containing only `Dockerfile`, `requirements.txt`, `railway.toml`, and `bot.pyz`. Every Docker COPY input is present in that flat directory. The bundle contains the current Python sources and full handbook, without credentials or private documentation. Its bundled backup CLI made a complete online SQLite backup. Docker CMD and the legacy TOML start the same bundle, so startup does not depend on legacy TOML support. These checks verify the packaged layout and executable app, not a real container build or live deployment.
 
@@ -19,6 +19,12 @@ Covered behavior:
 - FAQ topic browsing, exact-ID and keyword search, autocomplete, private defaults/public opt-in, editing permissions, validation rollback, server isolation, legacy saves, persistence, availability during waiting rolls, and exclusion of private controls from built-in answers.
 - Railway volume-derived default database path, valid overrides, all standard Railway environment markers, and rejection of root paths, traversal, and symlink escape outside the persistent volume.
 
+New regression coverage in version 1.1.2:
+
+- Using the real Discord dispatcher, connect, ready, message, and interaction events reach their scheduled handlers and event waiters. This test reproduced the live `HeroBot.dispatch()` startup crash before the fix and passes afterward.
+- Existing command, form, roll-button ownership, and deferred-reply tests continue to pass through the renamed game command handler.
+- Rebuilt `bot.pyz` contains the corrected command handler and version 1.1.2. Its offline command validation passes.
+
 New regression coverage in version 1.1.1:
 
 - Mixed number/text dice reject invalid operations before randomness; copied mathematical minus signs work.
@@ -34,7 +40,9 @@ New regression coverage in version 1.1.1:
 - Restore preserves original corrupt database and WAL/SHM bytes, successfully restores a valid backup, rejects invalid backup JSON shapes, and leaves current data untouched when the restore source is invalid.
 - Zero server IDs are rejected before database creation or Discord connection.
 
-Known verification limits: no live Discord token or Railway account was supplied, so live login, command synchronization, channel permissions, reconnect behavior against Discord, and Railway deployment have not been exercised. Docker is unavailable in the workspace; the container has not been built here. The Dockerfile runs offline command validation during its build.
+Live Railway inspection confirmed the original service had no attached volume. A persistent volume was attached to that service at `/data` and the service was redeployed; runtime logs confirmed the volume mounted and the storage error disappeared. Startup then exposed the Discord event-dispatcher conflict fixed in this release. The final live deployment result is reported separately with the delivered fix.
+
+Known verification limits: local tests do not use a Discord token. Channel permissions and full gameplay against live Discord, as well as reconnect behavior against a real Gateway, require separate integration checks. Docker is unavailable in the workspace; the container has not been built here. The Dockerfile runs offline command validation during its build.
 
 Tests report an upstream Python `audioop` deprecation warning and legacy TextInput-label warnings. These do not fail validation. The bot uses no voice functionality.
 

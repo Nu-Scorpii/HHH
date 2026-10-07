@@ -235,7 +235,7 @@ def test_discord_acknowledges_before_transaction_and_exports_after_defer(world):
             i.response.defer.assert_awaited_once()
             return execute(*args, **kwargs)
         world.game.execute = checked
-        assert await bot.dispatch(i, 'export', private=True)
+        assert await bot.execute_command(i, 'export', private=True)
         i.response.send_message.assert_not_awaited()
         i.response.defer.assert_awaited_once_with(ephemeral=True, thinking=True)
         i.followup.send.assert_not_awaited()
@@ -251,7 +251,7 @@ def test_deferred_public_error_keeps_the_explanation_private(world):
     async def run():
         bot = HeroBot(world.game)
         i = interaction()
-        assert not await bot.dispatch(i, 'configure', gm_role_id=900)
+        assert not await bot.execute_command(i, 'configure', gm_role_id=900)
         assert 'creator' not in i.edit_original_response.call_args.kwargs['content'].lower()
         assert 'creator' in i.followup.send.call_args.args[0]
         assert i.followup.send.call_args.kwargs['ephemeral'] is True

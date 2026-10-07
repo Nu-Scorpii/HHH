@@ -1,3 +1,12 @@
+# Version 1.1.2 — October 7, 2026
+
+- Fixed startup crashes after Discord login: the game command handler no longer overrides `discord.Client.dispatch`. Gateway connect/ready events, interactions, and DM messages can reach Discord's normal event handlers.
+- Updated all slash-command, form, and roll-button callers to use the separate game command handler.
+- Added a regression test using the real Discord event dispatcher and event waiters. It reproduces the reported `HeroBot.dispatch()` crash before the fix and verifies connect, ready, message, and interaction delivery afterward.
+- Added exact steps for attaching Railway storage at `/data` and retaining the existing campaign database when deploying the corrected bundle.
+
+The command set remains 88 slash commands. Existing campaign data requires no migration. Rebuild and upload `bot.pyz` after source changes.
+
 # Version 1.1.1 — October 7, 2026
 
 ## Deployment and Discord

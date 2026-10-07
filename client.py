@@ -34,7 +34,7 @@ class RollView(discord.ui.View):
                 if interaction.guild_id != self.guild:
                     await interaction.response.send_message('Use this roll in its original server.', ephemeral=True)
                     return
-                okay = await bot.dispatch(interaction, 'resolve', plus_ultra=use_ultra, pending_id=token)
+                okay = await bot.execute_command(interaction, 'resolve', plus_ultra=use_ultra, pending_id=token)
                 if okay and interaction.message:
                     try:
                         await interaction.message.edit(view=None)
@@ -68,7 +68,7 @@ class HeroForm(discord.ui.Modal):
         except ValueError:
             await interaction.response.send_message('Use a whole-number adult age, such as 19.', ephemeral=True)
             return
-        await self.bot.dispatch(interaction, 'hero_edit' if self.editing else 'hero_create', private=True,
+        await self.bot.execute_command(interaction, 'hero_edit' if self.editing else 'hero_create', private=True,
             name=str(self.name), hero_name=str(self.hero_name), age=age, goal=str(self.goal), cooperation=str(self.cooperation))
 
     async def on_error(self, interaction, error):
@@ -92,7 +92,7 @@ class QuirkForm(discord.ui.Modal):
             self.add_item(item)
 
     async def on_submit(self, interaction):
-        await self.bot.dispatch(interaction, 'hero_quirk', private=True, name=self.quirk_name, reach=self.reach,
+        await self.bot.execute_command(interaction, 'hero_quirk', private=True, name=self.quirk_name, reach=self.reach,
             ability=str(self.ability), ordinary=str(self.ordinary), cannot=str(self.cannot), limits=str(self.limits))
 
     async def on_error(self, interaction, error):
@@ -251,11 +251,13 @@ class HeroBot(discord.Client):
             private = spec.private
             if 'share' in kwargs:
                 private = not kwargs.pop('share')
-            await self.dispatch(interaction,spec.operation,private=private,**kwargs)
+            await self.execute_command(interaction,spec.operation,private=private,**kwargs)
         except GameError as exc:
             await self.error(interaction,str(exc))
 
-    async def dispatch(self, interaction, operation_name, *, private=False, **kwargs):
+    # Client.dispatch belongs to Discord's synchronous Gateway event machinery.
+    # Game commands need their own entry point so login and events still work.
+    async def execute_command(self, interaction, operation_name, *, private=False, **kwargs):
         try:
             acting = actor(interaction)
             # Acknowledge within Discord's deadline before SQLite can wait for

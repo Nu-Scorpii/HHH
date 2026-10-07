@@ -1,4 +1,19 @@
-# Fix your Railway build — version 1.1.1
+# Fix your Railway deployment — version 1.1.2
+
+## Missing persistent volume
+
+If runtime logs say **"Railway needs an attached persistent volume, recommended mount /data. Attach it, then redeploy."**, the build succeeded but the bot has no persistent storage.
+
+1. Open the Railway project containing the bot service.
+2. Choose **Add → Volume**, select the bot service, and enter **`/data`** as the mount path.
+3. Choose **Deploy** to apply the volume attachment and redeploy the bot.
+4. If `BOT_DB_PATH` is set, it must name a database inside that mount, such as `/data/ua.sqlite3`. When omitted, the bot uses that path automatically. Keep an existing campaign's volume and database filename.
+
+Railway supplies `RAILWAY_VOLUME_MOUNT_PATH` automatically when the volume is attached. Do not set that variable yourself. The startup check protects saves from disappearing during a restart or redeploy.
+
+If the next error mentions **`HeroBot.dispatch()`** or **`coroutine 'HeroBot.dispatch' was never awaited`**, upload this release's rebuilt **`bot.pyz`** to the repository root and redeploy the same service. Version 1.1.2 fixes a game method that conflicted with Discord's event dispatcher. Keep the attached volume; this code update needs no database migration.
+
+## Earlier missing-folder build failure
 
 Your screenshot shows:
 
