@@ -81,7 +81,7 @@ def parse(expression, custom):
             require(n >= 1 and count <= MAX_DICE, "Roll 1–100 dice per command.")
             if source.startswith("["):
                 name = source[1:-1]
-                require(name in custom, "That custom die does not exist. Use /dice list.")
+                require(name in custom, 'That saved die does not exist. Use numbered dice, or dice:1d[custom] with faces:[0,1,1,5].')
                 die = Die(faces=tuple(parse_faces(custom[name])), label=f"d[{name}]")
             else:
                 sides = int(source)
@@ -96,16 +96,19 @@ def parse(expression, custom):
     return terms
 
 
-def roll_expression(expression, custom, rng=RNG, keep="all", force=None):
+def roll_expression(expression, custom, rng=RNG, keep="all", force=None, *, bonus=0):
     require(keep in ("all", "high", "low"), "Keep must be all, high, or low.")
+    require(type(bonus) is int and abs(bonus) <= MAX_SIDES, "Bonus points must be a whole number within ±1 billion.")
     terms = parse(expression, custom)
     dice = [die for _, term in terms if isinstance(term, list) for die in term]
-    require(keep == "all" or len(terms) == 1 and terms[0][0] == 1, "Keep-high/low uses a single positive dice pool, such as 2d10.")
+    pools = [(sign, term) for sign, term in terms if isinstance(term, list)]
+    require(keep == "all" or len(pools) == 1 and pools[0][0] == 1, "Keep-high/low uses a single positive dice pool, such as 2d10+3.")
     # Validate possible faces before drawing anything. A mixed die must not
     # randomly accept an operation on numeric faces and reject its text faces.
     text_dice = any(die.faces and any(type(face) is not int for face in die.faces) for die in dice)
     if text_dice:
         require(keep == 'all', "Keep-high/low needs entirely numeric dice faces.")
+        require(bonus == 0, "Text dice cannot have bonus points.")
         require(all(not isinstance(term, int) for _, term in terms), "Text dice cannot have numeric modifiers.")
         require(all(sign == 1 or all(not die.faces or all(type(face) is int for face in die.faces) for die in term)
                     for sign, term in terms if isinstance(term, list)), "Text faces cannot be subtracted.")
@@ -129,7 +132,8 @@ def roll_expression(expression, custom, rng=RNG, keep="all", force=None):
             require(sign == 1, "Text faces cannot be subtracted.")
         results.append({"die": term[0].label, "sign": sign, "rolls": values, "kept": kept})
     require(numeric or all("modifier" not in x for x in results), "Text dice cannot have numeric modifiers.")
-    return {"expression": expression, "groups": results, "total": total if numeric else None}
+    return {"expression": expression, "groups": results, "bonus": bonus,
+            "keep": keep, "total": total + bonus if numeric else None}
 
 
 def stat_roll(sides, edge=False, pressure=False, rng=RNG, force=None):

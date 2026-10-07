@@ -383,7 +383,7 @@ class Campaign:
         require(re.fullmatch(r'[a-z][a-z0-9_]{0,31}', name), 'Use a name such as weather or rescue_kit.')
         require(name in c.state['dice'] or len(c.state['dice']) < 100, 'Keep at most 100 custom dice per server.')
         c.state['dice'][name] = parse_faces(faces)
-        return {'text': f"Saved d[{name}] with {len(c.state['dice'][name])} weighted faces. Roll it with /dice roll expression:1d[{name}]."}
+        return {'text': f"Saved d[{name}] with {len(c.state['dice'][name])} weighted faces. Roll it with /roll dice:1d[{name}]."}
 
     @operation(pending=True)
     def dice_list(self, c):

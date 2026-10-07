@@ -4,9 +4,10 @@ A playable Discord bot for the simplified MHA university AU rules developed for 
 
 ## What is included
 
-- **88 slash commands** with guided character and Quirk forms, rule help, searchable FAQs, and a downloadable player handbook.
+- **85 slash commands** with guided character and Quirk forms, rule help, searchable FAQs, and a downloadable player handbook.
 - Four stat dice; Health, Energy, Training, prepared moves, Talents, items, Prep, and custom personal trackers.
 - Arbitrary numbered dice, mixed dice expressions, keep-high/low, weighted custom faces, and text dice.
+- Plain Discord messages with bold headings, readable dice results, and bold totals. `/roll` replaces the old `/dice` group and supports an optional `bonus`.
 - Cooperative battles with zones, enemy cards, turn budgets, Armor, Help, Guard, Shield, Capture, healing, group defenses, objectives, and Danger.
 - Accept/Plus Ultra buttons after stat rolls, restored if the bot restarts while a decision is waiting.
 - Main and side sessions, meaningful-participation rewards, weekly Training caps, unlock requests, shared milestones, and friendly sparring.
@@ -21,7 +22,7 @@ This is a small-group bot: each server has one active battle **or** spar and one
 1. Open the [Discord Developer Portal](https://discord.com/developers/applications), create an application, and give it a name.
 2. On **Bot**, generate a bot token. Keep it for Railway's `DISCORD_TOKEN` variable. Do not put it in source code or send it in Discord.
 3. On **Installation**, enable **Guild Install**. Set the install link's guild scopes to `bot` and `applications.commands`.
-4. Give the bot **View Channels**, **Send Messages**, **Embed Links**, **Attach Files**, and **Read Message History**. Administrator permission is unnecessary. Permit these in the game channel as well.
+4. Give the bot **View Channels**, **Send Messages**, **Attach Files**, and **Read Message History**. Administrator permission is unnecessary. Permit these in the game channel as well. Normal replies now use plain messages.
 5. Use the install link to add it to your server. Players must be allowed to use application commands in the game channel.
 6. Enable Discord **User Settings → Advanced → Developer Mode**. Right-click your own account and copy your **user ID**. Right-click your server and copy its **server ID**.
 
@@ -29,7 +30,7 @@ Leave the Interactions Endpoint URL empty. This bot receives interactions throug
 
 ## 2. Fix the Railway build and deploy
 
-Start with **START_HERE.md** if you are using GitHub's web file uploader. This release is **1.1.2**.
+Start with **START_HERE.md** if you are using GitHub's web file uploader. This release is **1.2.0**.
 
 The error `COPY ua_bot ./ua_bot ... "/ua_bot": not found` means that Docker cannot see the old source folder in its build context. An upload that flattens or omits folders, or a Railway Root Directory pointing at the wrong folder, can cause it. This version runs a prebuilt **`bot.pyz`**, which contains all bot modules, the player handbook, and the backup utility.
 
@@ -111,7 +112,15 @@ Python does not regenerate `bot.pyz` automatically. Upload the rebuilt bundle an
 4. For a main mission, use `/mission start name:Campus Rescue` after players prepare their loadouts. This locks prepared choices and assigns waiting Prep.
 5. Run checks and battles. Use `/session end summary:...` to award capped Training. Finish the battle before `/mission end` or safe recovery.
 
-Players can learn at their own pace through `/help`, `/rules`, `/faq`, and `/guide`. The bot shows the actual roll before anyone chooses Plus Ultra. A raw `/dice roll` shows dice immediately and does not spend game resources or offer Plus Ultra; use `/check` and battle actions for tracked game rolls.
+Players can learn at their own pace through `/help`, `/rules`, `/faq`, and `/guide`. The bot shows the actual roll before anyone chooses Plus Ultra. `/roll` shows raw dice immediately; use `/check` and battle actions for tracked game rolls.
+
+### Simple dice rolls
+
+`/roll` rolls 1d20. `/roll dice:1d20 bonus:3` adds 3 points to the total. Negative bonuses subtract points. Expressions such as `2d17+1d8-3` work too, and their modifiers are shown separately from the bonus. `keep:high` or `keep:low` chooses one die from a single pool before adding any modifiers or bonus.
+
+For weighted or text dice, use `/roll dice:1d[custom] faces:["sun","rain","rain","storm"]`. Faces apply to that roll only; repeated entries add weight. Numeric faces support bonuses and keep-high/low. Dice containing text have no numeric total and cannot use bonuses, modifiers, subtraction, or keep-high/low. Previously saved named dice remain usable through `/roll dice:1d[name]`.
+
+Discord uses lowercase slash-command names, so type `/roll`. On startup, command synchronization replaces the old `/dice` group. Existing character sheets, battles, and saved dice require no data migration. Live panels adopt the new plain-message style on their next update. See [message examples](MESSAGE_STYLE.md).
 
 ## FAQ examples
 
@@ -181,7 +190,7 @@ python -m pytest -q
 
 For local play, copy `.env.example` to `.env`, fill in the token and IDs, and keep `BOT_DB_PATH=data/ua.sqlite3`. Start with `python -m ua_bot`. Run only one copy of the bot against your live server/database. The project ignores local credentials, saves, and virtual environments during source and container uploads.
 
-The offline check validates the real Discord command tree without a token. The package has passed **148 automated tests** locally, including Gateway event delivery, and its pinned dependencies pass `pip check`. Offline checks do not log in to Discord. Live deployment verification is specific to your Railway environment. The container itself has not been built in this workspace. The real bundle also passed that check from an isolated four-file upload directory, including its embedded handbook and backup command. The Dockerfile runs the same bundle validation during a build.
+The offline check validates the real Discord command tree without a token. The package has passed **174 automated tests** locally, including Gateway event delivery and the new roll/message behavior, and its pinned dependencies pass `pip check`. Offline checks do not log in to Discord. Live deployment verification is specific to your Railway environment. The container itself has not been built in this workspace. The real bundle also passed that check from an isolated four-file upload directory, including its embedded handbook and backup command. The Dockerfile runs the same bundle validation during a build.
 
 Warnings about optional voice libraries are harmless for this text-command bot. Python 3.12 may also show an upstream `audioop` deprecation warning; the Dockerfile pins Python 3.12.
 

@@ -7,7 +7,7 @@ import pytest
 import discord
 from ua_bot.client import HeroBot, HeroForm, QuirkForm, RollView
 from ua_bot.commands import MISSING, SPECS, help_text
-from ua_bot.display import embeds
+from ua_bot.display import battle_panel, length, messages
 
 
 def interaction(user=2, request=777, roles=()):
@@ -15,7 +15,7 @@ def interaction(user=2, request=777, roles=()):
     async def defer(**kwargs):
         response.is_done.return_value = True
     response.defer = AsyncMock(side_effect=defer)
-    return SimpleNamespace(guild_id=100, user=SimpleNamespace(id=user,roles=[SimpleNamespace(id=r) for r in roles]),
+    return SimpleNamespace(guild_id=100, user=SimpleNamespace(id=user,display_name='Rigel (Angel)',roles=[SimpleNamespace(id=r) for r in roles]),
                            id=request, response=response, followup=SimpleNamespace(send=AsyncMock()), message=None,
                            extras={}, edit_original_response=AsyncMock())
 
@@ -42,6 +42,7 @@ def test_real_slash_tree_is_valid_and_private_command_absent(world):
         for payload in payloads:
             check(payload)
         assert set(seen) == {s.path for s in SPECS}
+        assert 'roll' in seen and not any(path.startswith('dice') for path in seen)
         public = json.dumps(payloads)+''.join(help_text(x) for x in ['quick','create','quirks','rolls','battle','training','spar','gm','commands'])
         assert 'rigger' not in public.lower()
         assert bot.intents.guilds and bot.intents.dm_messages
@@ -136,22 +137,23 @@ def test_plain_result_omits_none_view_and_mentions_are_disabled(world):
         await bot.send_result(i,{'text':'A completed action'},private=True)
         kwargs = i.response.send_message.call_args.kwargs
         assert 'view' not in kwargs and kwargs['ephemeral'] is True
+        assert kwargs['content'] == '✅ **UA Hero College**\n\nA completed action'
+        assert 'embed' not in kwargs and 'embeds' not in kwargs
         assert not kwargs['allowed_mentions'].everyone
         assert not kwargs['allowed_mentions'].users
         await bot.close()
     asyncio.run(run())
 
 
-def test_large_output_and_panel_fit_message_embed_limits(world):
-    result = {'title':'Long sheet','text':'Long notes\n'*3000}
-    pieces = embeds(result)
-    assert len(pieces) > 1 and all(len(e) < 6000 and len(e.description) <= 4096 for e in pieces)
-    async def run():
-        bot = HeroBot(world.game)
-        panel = bot.panel_embeds(result)
-        assert sum(len(e) for e in panel) <= 6000 and len(panel) <= 10
-        await bot.close()
-    asyncio.run(run())
+def test_large_output_and_panel_fit_plain_message_limits(world):
+    result = {'title':'Long sheet','text':('Long notes 🦸\n'*3000)}
+    pieces = messages(result)
+    assert len(pieces) > 1 and all(length(p) <= 2000 for p in pieces)
+    assert 'continued**' in pieces[1]
+    world.create()
+    world.battle(users=(2,))
+    board = battle_panel(world.call('battle_status',2))
+    assert length(board) <= 2000 and 'Full board & intentions: /battle status' in board
 
 
 def test_pending_buttons_restored_after_restart_without_login(world):

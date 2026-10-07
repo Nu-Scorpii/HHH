@@ -2,7 +2,7 @@
 
 Checked October 7, 2026 with Python 3.12 and the pinned dependencies.
 
-**148 automated tests passed.** The real Discord application-command tree serialized successfully: **88 slash commands across 20 root commands**. `pip check` reports no broken requirements. Offline checks made no Discord network login.
+**174 automated tests passed.** The real Discord application-command tree serialized successfully: **85 slash commands across 20 root commands**. `pip check` reports no broken requirements. Offline checks made no Discord network login.
 
 The Railway TOML parsed successfully. The real `bot.pyz` passed offline startup from an isolated directory containing only `Dockerfile`, `requirements.txt`, `railway.toml`, and `bot.pyz`. Every Docker COPY input is present in that flat directory. The bundle contains the current Python sources and full handbook, without credentials or private documentation. Its bundled backup CLI made a complete online SQLite backup. Docker CMD and the legacy TOML start the same bundle, so startup does not depend on legacy TOML support. These checks verify the packaged layout and executable app, not a real container build or live deployment.
 
@@ -18,6 +18,15 @@ Covered behavior:
 - Full online SQLite backup, offline restoration, preservation of the previous database, refusal of unsafe overwrites, and Railway startup refusal when persistent storage is missing/misconfigured.
 - FAQ topic browsing, exact-ID and keyword search, autocomplete, private defaults/public opt-in, editing permissions, validation rollback, server isolation, legacy saves, persistence, availability during waiting rolls, and exclusion of private controls from built-in answers.
 - Railway volume-derived default database path, valid overrides, all standard Railway environment markers, and rejection of root paths, traversal, and symlink escape outside the persistent volume.
+
+New regression coverage in version 1.2.0:
+
+- Exact reference-style roll messages with server display names, individual dice, positive/negative bonuses, and bold totals.
+- Keep-high/low selects a die before adding expression modifiers and bonus points; mixed pools retain readable arithmetic.
+- Inline numeric, weighted, and text faces apply only to one roll and preserve saved dice. Invalid inputs draw no randomness and consume no creator override.
+- Creator overrides preserve bonus arithmetic and remain absent from public replies. Raw rolls can be used before character creation and during a waiting tracked roll without changing campaign resources or decisions.
+- Slash-command serialization includes `/roll` and excludes the entire old `/dice` group; current public help and FAQs have no removed command references.
+- Plain messages, long numeric/text pools, Unicode, escaped names, private continuations, empty confirmations, and large live panels fit Discord's message limits. Existing saved panels clear their old embeds while keeping their message IDs; waiting decisions appear before roster details.
 
 New regression coverage in version 1.1.2:
 

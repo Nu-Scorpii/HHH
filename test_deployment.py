@@ -49,7 +49,7 @@ def test_four_flat_files_supply_every_docker_copy_and_offline_startup(upload):
     result = run_bundle(upload, '--check')
     assert command == ['python', 'bot.pyz']
     assert result.returncode == 0, result.stderr
-    assert '88 slash commands across 20 root commands' in result.stdout
+    assert '85 slash commands across 20 root commands' in result.stdout
     assert 'No network login performed' in result.stdout
     assert not (upload/'data').exists()
 

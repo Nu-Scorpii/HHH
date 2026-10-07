@@ -28,6 +28,16 @@ In a fight, you can **move one zone and take one action** on your turn. Your tea
 
 You do not need to perform a character voice or give a speech. "My hero reassures the frightened student and shows them the exit" is enough to explain an action.
 
+## Roll any dice
+
+Type `/roll` to roll a d20, or choose your dice with `/roll dice:1d20`. The bot shows every die and a bold total. Add points with `/roll dice:1d20 bonus:3`; a roll of 8 becomes 11. Negative bonuses subtract points. You can put modifiers in the dice expression too, such as `/roll dice:2d17+1d8-3`.
+
+For a simple best-of-two roll, choose `dice:2d20 keep:high`. `keep:low` keeps the lower die instead. Any modifier or bonus is added after the choice. Keep-high/low works on one positive numeric dice pool.
+
+For weighted or text faces, use `/roll dice:1d[custom] faces:["sun","rain","rain","storm"]`. Repeated faces are more likely. Numeric custom faces, such as `[0,1,1,5]`, can use bonuses. Text faces show words and have no numeric total; they cannot use bonuses, modifiers, subtraction, or keep-high/low. Faces apply only to this roll.
+
+Raw `/roll` results are useful for any extra dice the GM asks for. Tracked game actions use `/check` or the battle commands, with the stat rules above and their Accept/Plus Ultra buttons.
+
 ## Create your student
 
 Follow these seven steps. You can change an unfinished choice while building your character.

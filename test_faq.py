@@ -114,11 +114,11 @@ def test_faq_private_default_public_opt_in_and_autocomplete(world):
         private=interaction(request=888)
         await bot.run_spec(private,spec,{'question':'energy','category':'all','share':False})
         private.response.defer.assert_awaited_once_with(ephemeral=True, thinking=True)
-        assert 'restore 1 Energy' in private.edit_original_response.call_args.kwargs['embed'].description
+        assert 'restore 1 Energy' in private.edit_original_response.call_args.kwargs['content']
         shared=interaction(request=889)
         await bot.run_spec(shared,spec,{'question':'energy','category':'all','share':True})
         shared.response.defer.assert_awaited_once_with(ephemeral=False, thinking=True)
-        assert 'restore 1 Energy' in shared.edit_original_response.call_args.kwargs['embed'].description
+        assert 'restore 1 Energy' in shared.edit_original_response.call_args.kwargs['content']
         world.call('faq_add',key='classroom',question='Where is our classroom?',answer='Room 202')
         suggested=await bot.faq_autocomplete(interaction(),'classroom')
         assert suggested[0].value=='classroom'

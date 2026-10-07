@@ -53,7 +53,7 @@ Optional arguments are positional. To specify a scope, include a count; to speci
 
 `miss` chooses the lowest available face from 1–3. `success` chooses the lowest available face from 4–7. `big` chooses the lowest available face of 8 or higher. `max` chooses the actual highest face. These are deliberate outcomes rather than probability adjustments. On text dice, use an exact quoted face; generic outcome words work on dice containing only numeric faces.
 
-`check` covers ordinary tracked checks outside battle. `task` covers battle objectives and risky movement. A stat scope applies to tracked rolls using that stat, including sparring. `dice` covers raw `/dice roll` commands.
+`check` covers ordinary tracked checks outside battle. `task` covers battle objectives and risky movement. A stat scope applies to tracked rolls using that stat, including sparring. The existing `dice` scope covers raw `/roll` commands. Forced faces are selected before expression modifiers and bonus points are added; all arithmetic stays consistent.
 
 ## What gets changed
 

@@ -1,6 +1,6 @@
 # Public slash-command reference
 
-The bot provides 88 slash commands. Use them inside your game server. Discord presents arguments as selectable fields; the examples in the guides show their names and values.
+The bot provides 85 slash commands. Use them inside your game server. Discord presents arguments as selectable fields; the examples in the guides show their names and values.
 
 Commands described as GM require the creator or configured GM role. `/gm config` requires the creator. Errors and personal sheets/help are private where appropriate; battle actions and official changes are public.
 
@@ -267,41 +267,18 @@ Choose whether to replace held Prep with a new offer.
 |---|---|---|---|
 | `replace` | Default: `false` | true/false | False keeps the existing Prep; true takes the new offer |
 
-## /dice
+## /roll
 
-### /dice roll
+### /roll
 
-Roll arbitrary numbered or weighted custom dice.
+Roll any dice and optionally add bonus points.
 
 | Argument | Required/default | Type or choices | Meaning |
 |---|---|---|---|
-| `expression` | Required | text | Examples: 2d17+1d8-3, 1d[weather], 2d10 |
+| `dice` | Default: `1d20` | text | Dice to roll: 1d20, 2d17+1d8-3, or 2d[custom] |
+| `bonus` | Default: `0` | integer | Extra points added to the total; negative numbers subtract |
 | `keep` | Default: `all` | `all`, `high`, `low` | Keep |
-
-### /dice create
-
-GM: define a named die with numeric or text faces.
-
-| Argument | Required/default | Type or choices | Meaning |
-|---|---|---|---|
-| `name` | Required | text | Name |
-| `faces` | Required | text | JSON faces: [0,1,1,5] or ["sun","rain","storm"] |
-
-### /dice list
-
-List this server’s named dice.
-
-No arguments.
-
-Response is private by default.
-
-### /dice remove
-
-GM: remove a named custom die.
-
-| Argument | Required/default | Type or choices | Meaning |
-|---|---|---|---|
-| `name` | Required | text | Name |
+| `faces` | Optional; empty | text | Optional JSON faces for d[custom]: [0,1,1,5] or ["sun","rain"] |
 
 ## /battle
 
@@ -892,10 +869,11 @@ Response is private by default.
 - Core stat dice are d6, d8, d10, and d12; starting assignment is d10, d8, d8, d6.
 - Hero Health is 0–6; Energy is 0–3. Zero Health means Down.
 - Custom dice: 1–1,000,000,000 numbered sides; up to 100 dice and 20 expression terms per command.
-- Named custom dice use JSON arrays of 1–1000 integer or text faces. Repeated faces add weight. Integers may be negative, zero, or positive within ±1 billion; labels have 1–40 characters.
-- Named dice use lowercase IDs beginning with a letter, followed by letters, digits, or underscores, up to 32 characters. Example: `/dice create name:weather faces:["sun","rain","rain","storm"]`, then `/dice roll expression:1d[weather]`.
-- Keep-high/low requires a single positive numeric dice pool, without modifiers. Dice containing any text faces cannot use keep-high/low, subtraction, or numeric modifiers, including mixed number/text dice. Text results have no numeric total.
-- A server holds up to 100 named dice. Creating an existing name replaces its faces; removing it affects future rolls.
+- /roll defaults to 1d20. Its bonus field is a whole number within ±1 billion and is added once to the total, alongside any expression modifiers.
+- Per-roll custom faces use JSON arrays of 1–1000 integers or text labels. Example: `/roll dice:1d[custom] faces:["sun","rain","rain","storm"]`. Repeated faces add weight. Integers may be negative, zero, or positive within ±1 billion; labels have 1–40 characters. Faces are not saved.
+- Previously saved named dice remain usable with `/roll dice:1d[name]`. No dice-create/list/remove slash commands are registered.
+- Keep-high/low requires one positive numeric dice pool; modifiers and bonus points are added after choosing the kept die. Dice containing any text faces cannot use keep-high/low, subtraction, numeric modifiers, or bonus points. Text results have no numeric total.
+- /roll can be used before character creation or while a tracked roll waits. It does not spend resources or apply tracked game effects.
 - Custom hero trackers hold up to 20 names with values up to 120 characters; they are notes/manual counters on the sheet. Leave the value blank to delete a tracker and free its slot.
 - A battle supports up to 20 participants, 25 zones, 25 enemies, and 20 progress objectives. IDs for zones/objectives use up to 32 letters, digits, underscores, or hyphens.
 - Enemy Health corrections: 0–10000; damage: 0–20; action count: 1 or 2. Objective/Danger goals: 1–100.

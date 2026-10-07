@@ -112,13 +112,13 @@ class PrivateRolls:
         self._record(rule, user, natural, final)
         return final
 
-    def expression(self, guild, user, expression, custom, keep, rng):
+    def expression(self, guild, user, expression, custom, keep, rng, *, bonus=0):
         terms = parse(expression, custom)
         dice = [die for _, term in terms if isinstance(term, list) for die in term]
-        natural = roll_expression(expression, custom, rng, keep)
+        natural = roll_expression(expression, custom, rng, keep, bonus=bonus)
         rule = self._rule(guild, user, "dice", None, lambda outcome: all(d.forced(outcome) is not None for d in dice))
         if not rule:
             return natural
-        final = roll_expression(expression, custom, rng, keep, force=rule['outcome'])
+        final = roll_expression(expression, custom, rng, keep, force=rule['outcome'], bonus=bonus)
         self._record(rule, user, natural, final)
         return final

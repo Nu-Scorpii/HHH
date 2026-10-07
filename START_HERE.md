@@ -1,4 +1,4 @@
-# Fix your Railway deployment — version 1.1.2
+# Fix your Railway deployment — version 1.2.0
 
 ## Missing persistent volume
 

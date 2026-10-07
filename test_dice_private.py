@@ -42,7 +42,7 @@ def test_invalid_custom_faces_rejected(faces):
 
 def test_text_modifiers_and_keep_rejected():
     custom = {'weather':['sun']}
-    for expression, keep in [('d[weather]+1','all'), ('-d[weather]','all'), ('2d[weather]','high'), ('d6+1','low')]:
+    for expression, keep in [('d[weather]+1','all'), ('-d[weather]','all'), ('2d[weather]','high'), ('d6+d8','low')]:
         with pytest.raises(GameError):
             roll_expression(expression, custom, Fixed(), keep)
 

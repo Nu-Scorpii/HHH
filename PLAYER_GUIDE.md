@@ -32,7 +32,9 @@ Use `talent:true` or `prep:true` **before rolling** to spend an appropriate Tale
 
 The server handles one waiting game roll at a time. While someone chooses, use `/pending`, `/hero sheet`, or `/battle status`. Gameplay changes resume when that roll is resolved.
 
-For dice that do not apply tracked game effects, use `/dice roll expression:2d17+1d8-3`. You can also roll `2d10 keep:high`, `2d10 keep:low`, or a named die such as `1d[weather]`. `/dice list` shows custom dice the GM created. Raw dice do not spend Energy or offer Plus Ultra.
+For any raw dice, use `/roll`; it defaults to 1d20. `/roll dice:1d20 bonus:3` adds 3 points. You can also use `/roll dice:2d17+1d8-3`, `dice:2d10 keep:high`, or `dice:2d10 keep:low`. Bonuses and expression modifiers are added after choosing the kept die.
+
+Custom faces work in the same command: `/roll dice:1d[custom] faces:[0,1,1,5]` or `faces:["sun","rain","rain","storm"]`. Repeated faces add weight. These faces apply only to the current roll. Text dice have no numeric total and cannot use bonuses, modifiers, subtraction, or keep-high/low. Raw rolls do not spend Energy or offer Plus Ultra. Use `/check` and battle actions for tracked game effects.
 
 ## Take a battle turn
 

@@ -1,3 +1,15 @@
+# Version 1.2.0 — October 7, 2026
+
+- Replaced the public `/dice` group with `/roll`. `/roll` defaults to 1d20 and accepts a dice expression, bonus points, keep-high/low, and optional JSON faces for `d[custom]`.
+- Bonuses are shown separately and added once after selecting any kept die. Expression modifiers now work alongside keep-high/low. Invalid bonuses and text-die combinations are rejected before randomness or creator-rule consumption.
+- Removed dice-create/list/remove slash commands. Per-roll faces support weighted and text dice without setup; old saved named dice remain usable.
+- Rebuilt all normal replies around the supplied plain Discord message style: emoji and bold headings, inline numeric results, bold totals, and organized sheet/battle/FAQ sections. Private replies and creator DMs retain their visibility.
+- Converted live battle panels to one bounded plain message. Existing panels clear their old embeds on refresh; full battle details remain in `/battle status`.
+- Added Unicode-aware message splitting and repeated continuation headings. Mentions remain disabled, and user-provided names and text are escaped.
+- Updated help, FAQ answers, player guides, command reference, and message examples. The public tree now has **85 slash commands across 20 root commands**.
+
+The automated suite passes **174 tests**. Existing campaign data requires no migration. Rebuild and upload `bot.pyz` after source changes.
+
 # Version 1.1.2 — October 7, 2026
 
 - Fixed startup crashes after Discord login: the game command handler no longer overrides `discord.Client.dispatch`. Gateway connect/ready events, interactions, and DM messages can reach Discord's normal event handlers.

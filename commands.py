@@ -82,10 +82,11 @@ SPECS = [
     Spec('hero prepare', 'hero_prepare', 'Prepare two learned moves, a Talent, and one item for a mission', [p('first',choices=MOVE),p('second',choices=MOVE),p('talent',choices=TALENT),p('item',default='none',choices=ITEM)]),
     Spec('hero tracker', 'hero_tracker', 'Save a custom tracker, or leave its value blank to delete it', [p('name'),p('value',default='',description='Tracker value; leave blank to delete this tracker')], True),
     Spec('hero prep', 'hero_prep', 'Choose whether to replace held Prep with a new offer', [p('replace',bool,False,'False keeps the existing Prep; true takes the new offer')]),
-    Spec('dice roll', 'dice_roll', 'Roll arbitrary numbered or weighted custom dice', [p('expression',description='Examples: 2d17+1d8-3, 1d[weather], 2d10'),p('keep',default='all',choices={'all':'All: show and sum numeric dice','high':'Keep highest: Edge pool','low':'Keep lowest: Pressure pool'})]),
-    Spec('dice create', 'dice_create', 'GM: define a named die with numeric or text faces', [p('name'),p('faces',description='JSON faces: [0,1,1,5] or ["sun","rain","storm"]')]),
-    Spec('dice list', 'dice_list', 'List this server’s named dice', [], True),
-    Spec('dice remove', 'dice_remove', 'GM: remove a named custom die', [p('name')]),
+    Spec('roll', 'roll', 'Roll any dice and optionally add bonus points', [
+        p('dice',default='1d20',description='Dice to roll: 1d20, 2d17+1d8-3, or 2d[custom]'),
+        p('bonus',int,0,'Extra points added to the total; negative numbers subtract'),
+        p('keep',default='all',choices={'all':'All: add every die','high':'Highest: keep the best die','low':'Lowest: keep the worst die'}),
+        p('faces',default='',description='Optional JSON faces for d[custom]: [0,1,1,5] or ["sun","rain"]')]),
     Spec('battle create', 'battle_create', 'GM: create a battle or rescue challenge', [p('name'),p('participants',description='Hero mentions or user IDs, separated by commas'),p('starting_zone',default='start')]),
     Spec('battle start', 'battle_start', 'GM: begin round 1 after announcing enemy intentions'),
     Spec('battle status', 'battle_status', 'Read current zones, turns, Health, enemies, and objectives'),
@@ -163,8 +164,9 @@ def help_text(topic):
         return ('/check uses your stat outside combat; /battle commands use it during combat. Roll and add nothing: 1–3 miss, 4–7 succeed, 8+ big success. '
                 'Edge rolls twice and keeps higher; Pressure keeps lower; any of both cancel. Declare Talent and Prep before rolling. '
                 'After the roll, /resolve plus_ultra:true sets it to 8 and costs 2 Health after the effect.\n'
-                '/dice roll expression:2d17+1d8-3 handles custom numbered dice. /dice roll expression:2d10 keep:high is an Edge pool. '
-                'GM /dice create defines JSON faces, including weighted repeats and text. Limits: 100 dice, 20 terms, 1 billion numbered sides, 1000 custom faces.')
+                '/roll defaults to 1d20. /roll dice:1d20 bonus:3 adds 3 points. /roll dice:2d10 keep:high keeps the highest die, then adds any bonus. '
+                'Use /roll dice:2d17+1d8-3 for mixed dice and modifiers. For weighted or text faces: /roll dice:1d[custom] faces:["sun","rain","rain","storm"]. '
+                'Limits: 100 dice, 20 terms, 1 billion numbered sides, 1000 custom faces. Text faces have no numeric total or bonus.')
     if topic == 'battle':
         return ('Choose a team order. /battle turn begins your turn; move one connected zone and take one action, then /battle end. '
                 'Actions: /battle attack, help, guard, task, automatic, recover. Enhanced options: capture, shield, move mode:rapid; /mend heals. '

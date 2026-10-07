@@ -7,6 +7,7 @@ import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from .private_controls import PrivateRolls
+from .dice import parse, parse_faces
 from .rules import STATS, TALENTS, GameError, clean, require
 
 
@@ -185,9 +186,20 @@ class Core:
         return {'type': 'pending', 'title': f"Waiting for {c.hero(p['user_id'])['hero_name']}",
                 'roll': p['roll'], 'pending_id': p['id'], 'user_id': p['user_id'], 'text': 'Use /resolve or the buttons.'}
 
-    @operation
-    def dice_roll(self, c, *, expression, keep='all'):
-        r = self.private.expression(c.actor.guild_id, c.uid, expression, c.state['dice'], keep, self.rng)
+    @operation(pending=True)
+    def roll(self, c, *, dice='1d20', bonus=0, keep='all', faces=''):
+        return self.dice_roll(c, expression=dice, bonus=bonus, keep=keep, faces=faces)
+
+    @operation(pending=True)
+    def dice_roll(self, c, *, expression, keep='all', bonus=0, faces=''):
+        # Old saved names remain usable. Per-roll faces never change campaign data.
+        custom = dict(c.state['dice'])
+        if faces:
+            custom['custom'] = parse_faces(faces)
+            terms = parse(expression, custom)
+            require(any(die.label == 'd[custom]' for _, term in terms if isinstance(term, list)
+                        for die in term), 'Use dice:1d[custom] (or 2d[custom], etc.) with the faces field.')
+        r = self.private.expression(c.actor.guild_id, c.uid, expression, custom, keep, self.rng, bonus=bonus)
         return {'type': 'dice', 'title': 'Dice roll', 'dice': r}
 
     def expire_help(self, c):

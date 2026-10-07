@@ -1,132 +1,243 @@
-"""Player-facing text only. Private-control state is never passed here."""
+"""Plain Discord Markdown. No private-control state is passed to this module."""
 
 import discord
-from .rules import ITEMS, MOVES, TALENTS
+from .rules import MOVES, TALENTS
+
+MESSAGE_LIMIT = 2000
 
 
 def safe(value):
     return discord.utils.escape_markdown(discord.utils.escape_mentions(str(value)))
 
 
-def chunks(text, size=3500):
+def short(value, limit=140):
+    text = ' '.join(str(value).split())
+    return text if len(text) <= limit else text[:limit - 1] + '…'
+
+
+def length(text):
+    # This conservative budget also fits clients which count UTF-16 code units.
+    return len(str(text).encode('utf-16-le')) // 2
+
+
+def chunks(text, size=MESSAGE_LIMIT):
     text = str(text)
-    while len(text) > size:
-        cut = text.rfind('\n', 0, size)
-        if cut < size // 2:
-            cut = size
+    while length(text) > size:
+        cut, used = 0, 0
+        for char in text:
+            width = 2 if ord(char) > 0xffff else 1
+            if used + width > size:
+                break
+            cut += 1
+            used += width
+        newline = text.rfind('\n', 0, cut + 1)
+        if newline > 0:
+            cut = newline
+        while cut > 0 and text[cut - 1] == '\\':
+            cut -= 1
+        if cut == 0:
+            cut = 1
         yield text[:cut]
         text = text[cut:].lstrip('\n')
     if text:
         yield text
 
 
+def heading(title, icon='✅'):
+    return f'{icon} **{safe(short(title))}**'
+
+
+def roll_values(values):
+    # Text faces stay escaped prose; supplied backticks never open code spans.
+    return ' · '.join(f'`{v}`' if type(v) is int else safe(short(v, 40)) for v in values)
+
+
+def dice_text(dice):
+    pools = [g for g in dice['groups'] if 'die' in g]
+    lines = []
+    for group in pools:
+        label = 'Rolls' if len(pools) == 1 and group['sign'] > 0 else (
+            ('− ' if group['sign'] < 0 else '') + f"{len(group['rolls'])}{group['die']}")
+        for offset in range(0, len(group['rolls']), 10):
+            prefix = label if offset == 0 else 'More rolls'
+            lines.append(f"{prefix}: {roll_values(group['rolls'][offset:offset + 10])}")
+        if group['kept'] is not None:
+            choice = 'lowest' if dice.get('keep') == 'low' else 'highest'
+            lines.append(f"Kept ({choice}): `{group['kept']}`")
+    modifiers = [g['modifier'] for g in dice['groups'] if 'modifier' in g]
+    if modifiers:
+        lines.append(f"Modifier: `{sum(modifiers):+d}`")
+    if dice.get('bonus'):
+        lines.append(f"Bonus: `{dice['bonus']:+d}`")
+    if dice['total'] is not None:
+        lines += ['', f"**Total: {dice['total']}**"]
+    return '\n'.join(lines)
+
+
 def hero_text(h, result):
     q = h['quirk'] or {}
-    lines = [f"**{safe(h['hero_name'])}** · {safe(h['name'])} · age {h['age']} · {'Approved' if h['approved'] else 'Draft'}",
-             ' · '.join(f"{s.title()} d{d}" for s, d in h['stats'].items()),
-             f"**Health {h['health']}/6 · Energy {h['energy']}/3 · Plus Ultra {'used' if h['plus_used'] else 'ready'}**",
-             f"Goal: {safe(h['goal'])}", f"Team connection: {safe(h['cooperation'])}",
+    lines = [f"{safe(h['name'])} · Age {h['age']} · {'Approved' if h['approved'] else 'Draft'}", '',
+             '**Resources**',
+             f"❤️ Health: `{h['health']}/6` · ⚡ Energy: `{h['energy']}/3`",
+             f"Plus Ultra: **{'used' if h['plus_used'] else 'ready'}**", '',
+             '**Stats**', ' · '.join(f"{s.title()}: `d{d}`" for s, d in h['stats'].items()), '',
+             '**Student**', f"Goal: {safe(h['goal'])}", f"Team connection: {safe(h['cooperation'])}", '',
              f"**Quirk: {safe(q.get('name', 'Not written yet'))}**", safe(q.get('ability', '')),
-             f"Ordinary uses: {safe(q.get('ordinary', ''))}", f"Reach: {q.get('reach', 'not chosen')}",
-             f"Cannot: {safe(q.get('cannot', ''))}", f"Limits: {safe(q.get('limits', ''))}", '**Prepared moves**']
-    for m in h['moves']:
-        lines.append(f"{safe(h['move_names'].get(m, MOVES[m]['name']))} ({MOVES[m]['name']}, {MOVES[m]['cost']} Energy): {MOVES[m]['rule']}")
-    lines += [f"**Talent:** {TALENTS[h['talent']][0]} · {'used' if h['talent_used'] else 'ready'}",
-              f"**Item:** {h['item'] or 'none'} · {'used' if h['item_used'] else 'ready'}",
-              f"Ordinary gear: {safe(h['gear'])}", f"Training: {h['training']} stored; {result.get('weekly_training', '?')}/2 this week.",
-              f"Shared increases applied: {h['increases_applied']}; {result.get('pending_increases', '?')} waiting.",
-              f"Healing received this fight: {h['healed']} · Down cheer used: {h['cheered']}",
+             f"Ordinary uses: {safe(q.get('ordinary', ''))}", f"Reach: {safe(q.get('reach', 'not chosen'))}",
+             f"Cannot: {safe(q.get('cannot', ''))}", f"Limits: {safe(q.get('limits', ''))}", '', '**Prepared moves**']
+    for move in h['moves']:
+        card = MOVES[move]
+        lines.append(f"• **{safe(h['move_names'].get(move, card['name']))}** · `{card['cost']} Energy`\n{card['name']}: {card['rule']}")
+    lines += ['', '**Loadout**',
+              f"Talent: **{TALENTS[h['talent']][0]}** · {'used' if h['talent_used'] else 'ready'}",
+              f"Item: **{safe((h['item'] or 'none').replace('_', ' ').title())}** · {'used' if h['item_used'] else 'ready'}",
+              f"Ordinary gear: {safe(h['gear'])}", '', '**Growth & preparation**',
+              f"Training: `{h['training']}` stored · `{result.get('weekly_training', '?')}/2` this week",
+              f"Shared stat increases: `{h['increases_applied']}` applied · `{result.get('pending_increases', '?')}` waiting",
               f"Prep: {safe(h['prep']['theme']) if h['prep'] else 'none'}"]
     if h.get('prep_offer'):
-        lines.append(f"New Prep choice: {safe(h['prep_offer']['theme'])}. /hero prep chooses which to keep.")
+        lines.append(f"New Prep choice: {safe(h['prep_offer']['theme'])}. Use /hero prep to choose.")
     for field, label in [('known_moves', 'Known moves'), ('known_talents', 'Known Talents'), ('known_items', 'Known items')]:
-        lines.append(f"{label}: {', '.join(h[field]) or 'none'}")
+        lines.append(f"{label}: {safe(', '.join(h[field]).replace('_', ' ')) or 'none'}")
     if h['unlock_requests']:
-        lines.append('Pending unlock requests: ' + ', '.join(x['option'] for x in h['unlock_requests']))
+        lines.append('Pending unlocks: ' + safe(', '.join(x['option'] for x in h['unlock_requests'])))
+    lines += ['', '**Scene & battle**',
+              f"Healing received this fight: {'yes' if h['healed'] else 'no'} · Down cheer: {'used' if h['cheered'] else 'ready'}"]
     if h['help']:
-        lines.append(f"Help: {safe(h['help']['task'])}, from user {h['help']['source']}; expires at helper's next turn.")
+        lines.append(f"Help: {safe(h['help']['task'])}, from user {safe(h['help']['source'])}; expires at the helper's next turn.")
     if h['guard']:
-        lines.append(f"Guard: from user {h['guard']['source']}; expires at guard's next turn.")
-    lines += [f"{safe(k)}: {safe(v)}" for k, v in h['trackers'].items()]
+        lines.append(f"Guard: from user {safe(h['guard']['source'])}; expires at the guard's next turn.")
+    if h['trackers']:
+        lines += ['', '**Personal trackers**']
+        lines += [f"• **{safe(k)}:** {safe(v)}" for k, v in h['trackers'].items()]
     return '\n'.join(lines)
+
+
+def battle_opening(result, *, compact=False):
+    b, heroes = result['battle'], result['heroes']
+    name = lambda uid: safe(short(heroes.get(uid, {}).get('hero_name', uid), 24 if compact else 80))
+    lines = [f"**Round {b['round']} · {b['phase'].title()} phase**"]
+    if b['active']:
+        budget = b['budget']
+        lines += [f"Turn: **{name(b['active'])}**",
+                  f"Action: **{'used' if budget['action'] else 'ready'}** · Move: **{'used' if budget['move'] else 'ready'}** · Signature: **{'used' if budget['signature'] else 'ready'}**"]
+    if result.get('pending_user'):
+        lines.append(f"🎲 Waiting for **{name(result['pending_user'])}** · /pending or /resolve")
+    if b['incoming']:
+        attack = b['incoming']
+        lines += ['', '**Incoming attack**', safe(short(attack['description'], 120) if compact else attack['description']),
+                  'Defenses waiting: ' + (', '.join(name(u) for u in attack['targets'] if u not in attack['results']) or 'none')]
+    if b['bonus_moves']:
+        lines.append('Bonus moves waiting: ' + ', '.join(name(u) for u in b['bonus_moves']))
+    if b['danger']:
+        d = b['danger']
+        lines.append(f"⚠️ **{safe(short(d['name'], 40) if compact else d['name'])}: {d['progress']}/{d['goal']}** · {'active' if d['active'] else 'stopped'}")
+        if not compact:
+            lines.append('Consequence: ' + safe(d['consequence']))
+    return lines
 
 
 def battle_text(result):
     b, heroes = result['battle'], result['heroes']
-    lines = [f"**Round {b['round']} · {b['phase'].title()} phase**"]
-    if b['active']:
-        budget = b['budget']
-        lines.append(f"Active: {safe(heroes[b['active']]['hero_name'])} · action {'used' if budget['action'] else 'ready'} · free move {'used' if budget['move'] else 'ready'} · signature {'used' if budget['signature'] else 'ready'}")
-    if result.get('pending_user'):
-        lines.append(f"Waiting roll: {safe(heroes.get(result['pending_user'], {}).get('hero_name', result['pending_user']))} · /pending or /resolve")
-    lines.append('**Zones**')
-    for z, links in b['zones'].items():
-        lines.append(f"{z}: " + (', '.join(f"{o}{' (blocked)' if not clear else ''}" for o, clear in links.items()) or 'no connections'))
-    lines.append('**Heroes**')
+    lines = battle_opening(result) + ['', '**Heroes**']
     for uid, h in heroes.items():
         marks = ['Down'] if h['health'] == 0 else []
         if uid in b['acted']:
             marks.append('turn ended')
         if h['help']:
-            marks.append('Help: ' + h['help']['task'])
+            marks.append('Help: ' + safe(h['help']['task']))
         if h['guard']:
             marks.append('Guard')
-        lines.append(f"{safe(h['hero_name'])} ({uid}) · {b['positions'][uid]} · HP {h['health']}/6 · E {h['energy']}/3" + (' · ' + ', '.join(marks) if marks else ''))
-    lines.append('**Foes and intentions**')
-    for key, e in b['enemies'].items():
-        lines.append(f"{key}: {safe(e['name'])} · {e['zone']} · HP {e['health']}/{e['maximum']} · damage {e['damage']} · actions {e['used']}/{e['actions']} · {', '.join(e['traits']) or 'no traits'}" + (f" · Capture {e['capture']}" if e['capture'] else ''))
-        if e['health']:
-            lines.append('Intention: ' + safe(e['intention']))
+        lines.append(f"• **{safe(h['hero_name'])}** · {safe(b['positions'][uid])} · HP `{h['health']}/6` · Energy `{h['energy']}/3`" + (' · ' + ', '.join(marks) if marks else ''))
+    lines += ['', '**Foes & intentions**']
+    for key, enemy in b['enemies'].items():
+        lines.append(f"• **{safe(enemy['name'])}** (`{safe(key)}`) · {safe(enemy['zone'])} · HP `{enemy['health']}/{enemy['maximum']}`\nDamage `{enemy['damage']}` · Actions `{enemy['used']}/{enemy['actions']}` · {safe(', '.join(enemy['traits'])) or 'no traits'}" + (f" · Capture `{enemy['capture']}`" if enemy['capture'] else ''))
+        if enemy['health']:
+            lines.append('Intention: ' + safe(enemy['intention']))
     if b['objectives']:
-        lines.append('**Objectives**')
-        for key, o in b['objectives'].items():
-            lines.append(f"{key}: {safe(o['name'])} {o['progress']}/{o['goal']}" + (f" · requires {', '.join(o['requires'])}" if o['requires'] else ''))
-    if b['danger']:
-        d = b['danger']
-        lines.append(f"**Danger:** {safe(d['name'])} {d['progress']}/{d['goal']} · {'active' if d['active'] else 'stopped'}\nConsequence: {safe(d['consequence'])}")
+        lines += ['', '**Objectives**']
+        for key, objective in b['objectives'].items():
+            lines.append(f"• **{safe(objective['name'])}** (`{safe(key)}`): `{objective['progress']}/{objective['goal']}`" + (f" · requires {safe(', '.join(objective['requires']))}" if objective['requires'] else ''))
+    lines += ['', '**Zones & routes**']
+    for zone, links in b['zones'].items():
+        lines.append(f"• **{safe(zone)}:** " + (', '.join(safe(other) + (' (blocked)' if not clear else '') for other, clear in links.items()) or 'no connections'))
     if b['shields']:
-        lines.append('Shields: ' + ', '.join(x['zone'] for x in b['shields'].values()))
-    if b['incoming']:
-        a = b['incoming']
-        lines.append('**Incoming:** ' + safe(a['description']))
-        lines.append('Defenses waiting: ' + ', '.join(safe(heroes[u]['hero_name']) for u in a['targets'] if u not in a['results']))
-    if b['bonus_moves']:
-        lines.append('Bonus movement waiting: ' + ', '.join(safe(heroes[u]['hero_name']) for u in b['bonus_moves']))
+        lines.append('Shields: ' + ', '.join(safe(x['zone']) for x in b['shields'].values()))
     if b['phase'] == 'heroes':
-        lines.append('**Next:** /battle turn → move and one action → /resolve if rolling → /battle end. Use /help topic:battle for options.')
+        lines += ['', '**Next:** /battle turn → move + one action → /resolve if rolling → /battle end']
+    elif b['phase'] == 'enemies':
+        lines += ['', '**Next:** resolve enemy actions and defenses → /gm phase next']
     return '\n'.join(lines)
 
 
 def result_text(result):
     if 'hero' in result:
         text = hero_text(result['hero'], result)
-        if result.get('text'):
-            text += '\n\n' + safe(result['text'])
-        return text
+        return text + ('\n\n' + safe(result['text']) if result.get('text') else '')
     if result.get('type') == 'battle':
         return battle_text(result)
     if result.get('type') == 'dice':
-        d = result['dice']
-        lines = [safe(d['expression'])]
-        for g in d['groups']:
-            if 'modifier' in g:
-                lines.append(f"Modifier: {g['modifier']:+d}")
-            else:
-                lines.append(f"{'−' if g['sign'] < 0 else ''}{g['die']}: {safe(', '.join(str(v) for v in g['rolls']))}" + (f" → keep {g['kept']}" if g['kept'] is not None else ''))
-        if d['total'] is not None:
-            lines.append(f"**Total: {d['total']}**")
-        return '\n'.join(lines)
+        return dice_text(result['dice'])
+    if result.get('faq_entries'):
+        return '\n\n'.join(f"**{safe(e['question'])}**\n{safe(e['answer'])}\nFAQ ID: `{safe(e['key'])}` · {safe(e['category'])}" for e in result['faq_entries'])
     lines = []
     if result.get('roll'):
-        r = result['roll']
-        lines.append(f"d{r['die']} · {r['mode']} · rolled {', '.join(str(x) for x in r['rolls'])} · **kept {r['kept']}**")
+        roll = result['roll']
+        lines += [f"Dice: `{len(roll['rolls'])}d{roll['die']}` · {roll['mode'].title()}",
+                  'Rolls: ' + roll_values(roll['rolls']), '', f"**Total: {roll['kept']}**"]
     if result.get('method'):
-        lines.append(safe(result['method']))
-    lines.append(safe(result.get('text', 'Done.')))
-    return '\n\n'.join(lines)
+        lines += ['', '**Approach**', safe(result['method'])]
+    lines += ['', safe(result.get('text', 'Done.'))]
+    return '\n'.join(lines).strip()
 
 
-def embeds(result):
-    title = safe(result.get('title', 'UA Hero College'))[:230]
-    return [discord.Embed(title=title if i == 0 else title + ' · continued', description=part,
-                          colour=0x253E55) for i, part in enumerate(chunks(result_text(result)))]
+def messages(result, *, display_name=None):
+    kind = result.get('type')
+    icon = result.get('icon', '✅')
+    title = result.get('title', 'UA Hero College')
+    if kind == 'dice':
+        title = f"{short(display_name or 'Player', 80)} rolled {short(result['dice']['expression'], 500)}"
+        icon = '🎲'
+    elif 'hero' in result:
+        icon = '🦸'
+    elif kind == 'battle':
+        icon = '⚔️'
+    elif result.get('roll'):
+        icon = '🎲'
+    elif title.startswith('FAQ') or result.get('faq_entries'):
+        icon = '❓'
+    elif title in ('Player help', 'Game rules', 'Player handbook'):
+        icon = '📖'
+    first = f'{icon} **{safe(title)}**' if kind == 'dice' else heading(title, icon)
+    continued = heading('Roll continued' if kind == 'dice' else short(title) + ' · continued', icon)
+    budget = MESSAGE_LIMIT - max(length(first), length(continued)) - 2
+    return [(first if index == 0 else continued) + '\n\n' + piece
+            for index, piece in enumerate(chunks(result_text(result) or 'Done.', budget))]
+
+
+def battle_panel(result):
+    """One live message: urgent choices first, then a bounded roster summary."""
+    if result.get('type') != 'battle':
+        return messages(result)[0]
+    b, heroes = result['battle'], result['heroes']
+    lines = [heading('Live battle · ' + result['title'], '⚔️'), ''] + battle_opening(result, compact=True)
+    lines += ['', '**Heroes**']
+    for uid, h in heroes.items():
+        mark = ' · Down' if h['health'] == 0 else ' · done' if uid in b['acted'] else ''
+        lines.append(f"• **{safe(short(h['hero_name'], 24))}** · HP `{h['health']}/6` · E `{h['energy']}/3` · {safe(short(b['positions'][uid], 16))}{mark}")
+    lines += ['', '**Foes**']
+    lines += [f"• `{safe(key)}` **{safe(short(e['name'], 24))}** · HP `{e['health']}/{e['maximum']}`"
+              for key, e in b['enemies'].items()]
+    if b['objectives']:
+        lines += ['', '**Objectives**']
+        lines += [f"• **{safe(short(o['name'], 32))}** · `{o['progress']}/{o['goal']}`" for o in b['objectives'].values()]
+    footer = '\n\nFull board & intentions: /battle status'
+    output = []
+    for line in lines:
+        if length('\n'.join(output + [line]) + footer) > MESSAGE_LIMIT:
+            output.append('… More on /battle status')
+            break
+        output.append(line)
+    while length('\n'.join(output) + footer) > MESSAGE_LIMIT:
+        output.pop(-2 if output[-1].startswith('…') else -1)
+    return '\n'.join(output) + footer

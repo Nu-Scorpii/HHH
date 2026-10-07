@@ -47,9 +47,9 @@ BUILTIN = (
     Answer('plus-ultra','rolls','When can I use Plus Ultra?',
            'After seeing a tracked stat roll, press Plus Ultra or /resolve plus_ultra:true. It changes the result to 8, then costs 2 Health after the effect. Use it once per official session. Only the rolling player can spend it. Raw dice, sparring, and automatic actions do not offer it.', 'plus ultra limit session health boost'),
     Answer('custom-dice','rolls','Can I roll unusual, weighted, or text dice?',
-           'Yes: /dice roll expression:2d17+1d8-3. Use keep:high or keep:low for a single numeric pool such as 2d10. The GM can /dice create using JSON faces such as [0,1,1,5] or ["sun","rain","rain","storm"]. /dice list shows named dice; roll one with 1d[weather]. Any die with text faces, including mixed faces, cannot use keep-high/low, subtraction, or numeric modifiers.', 'custom dice arbitrary die weighted weather symbols'),
+           'Yes. /roll defaults to 1d20. Try /roll dice:2d17+1d8-3, or /roll dice:1d20 bonus:3. Keep-high/low chooses one die from a single numeric pool, then adds modifiers and bonus points. For custom faces, use dice:1d[custom] faces:[0,1,1,5] or faces:["sun","rain","rain","storm"]. Repeated faces add weight; nothing needs to be created or saved. Text faces cannot use keep-high/low, subtraction, numeric modifiers, or bonus points.', 'custom dice arbitrary die weighted weather symbols roll bonus modifiers'),
     Answer('raw-dice','rolls','Does a raw dice roll apply game effects?',
-           'No. /dice roll shows dice immediately, without spending Energy, dealing damage, or offering Plus Ultra. Use /check and battle actions for rolls that apply tracked game effects. Raw dice do not award Training.', 'raw rolling damage resources standalone'),
+           'No. /roll shows dice and any bonus immediately. Use /check and battle actions for rolls that spend resources, apply game effects, or offer Plus Ultra. Raw rolls do not award Training and can be used while a tracked roll is waiting.', 'raw rolling damage resources standalone'),
     Answer('turn','combat','What can I do on my turn?',
            'Use /battle turn. Move one clear connected zone for free, and take one action, in either order. Resolve a rolled action, then /battle end. Attack, Help, Guard, a task, Recover, and an agreed automatic action are common choices. At most one signature move per turn.', 'turn action movement round order start end'),
     Answer('attack','combat','How much damage does an attack do?',
@@ -151,4 +151,5 @@ def response(question='', category='all', custom=None):
     matches = search(question,category,custom)
     if not matches:
         return {'title':'FAQ · no matching answer','text':'Try a short topic such as energy, capture, or training, or browse a category. If your question is about this campaign, ask the GM to add an answer.'}
-    return {'title':'FAQ · answers','text':'\n\n'.join(f'{e.question}\n{e.answer}\nFAQ ID: {e.key} · {CATEGORIES[e.category]}' for e in matches)}
+    return {'title':'FAQ · answers','text':'\n\n'.join(f'{e.question}\n{e.answer}\nFAQ ID: {e.key} · {CATEGORIES[e.category]}' for e in matches),
+            'faq_entries':[{'question':e.question,'answer':e.answer,'key':e.key,'category':CATEGORIES[e.category]} for e in matches]}

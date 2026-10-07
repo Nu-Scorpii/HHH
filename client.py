@@ -9,7 +9,8 @@ import discord
 from discord import app_commands
 from .commands import MISSING, SPECS, help_text
 from .core import Actor
-from .display import embeds, result_text
+from .display import battle_panel, messages
+from . import __version__
 from .faq import entries as faq_entries, search as faq_search
 from .rules import ITEMS, MOVES, TALENTS, GameError
 from .resources import handbook_bytes
@@ -32,7 +33,7 @@ class RollView(discord.ui.View):
             button = discord.ui.Button(label=label, style=style, custom_id=f"ua:roll:{guild}:{token}:{int(ultra)}")
             async def pressed(interaction, use_ultra=ultra):
                 if interaction.guild_id != self.guild:
-                    await interaction.response.send_message('Use this roll in its original server.', ephemeral=True)
+                    await bot.error(interaction, 'Use this roll in its original server.')
                     return
                 okay = await bot.execute_command(interaction, 'resolve', plus_ultra=use_ultra, pending_id=token)
                 if okay and interaction.message:
@@ -66,7 +67,7 @@ class HeroForm(discord.ui.Modal):
         try:
             age = int(str(self.age))
         except ValueError:
-            await interaction.response.send_message('Use a whole-number adult age, such as 19.', ephemeral=True)
+            await self.bot.error(interaction, 'Use a whole-number adult age, such as 19.')
             return
         await self.bot.execute_command(interaction, 'hero_edit' if self.editing else 'hero_create', private=True,
             name=str(self.name), hero_name=str(self.hero_name), age=age, goal=str(self.goal), cooperation=str(self.cooperation))
@@ -170,12 +171,14 @@ class HeroBot(discord.Client):
         if self.development_guild:
             guild = discord.Object(id=self.development_guild)
             self.tree.copy_global_to(guild=guild)
-            await self.tree.sync(guild=guild)
+            synced = await self.tree.sync(guild=guild)
         else:
-            await self.tree.sync()
+            synced = await self.tree.sync()
+        log.info('Registered %s slash commands across %s root commands (v%s); /roll ready.',
+                 len(SPECS), len(synced), __version__)
 
     async def on_ready(self):
-        log.info('UA Hero College connected as bot ID %s; %s server(s).', self.user.id, len(self.guilds))
+        log.info('UA Hero College connected as bot ID %s; %s server(s); version %s.', self.user.id, len(self.guilds), __version__)
 
     async def on_message(self, message):
         if message.author.bot:
@@ -184,24 +187,22 @@ class HeroBot(discord.Client):
                                          guild_ids=[g.id for g in self.guilds])
         if reply:
             # Replies remain exclusively in the creator's DM channel.
-            for piece in self.dm_chunks(reply):
+            for piece in messages({'title':'Creator controls', 'icon':'🔒', 'text':reply}):
                 await message.channel.send(piece, allowed_mentions=discord.AllowedMentions.none())
 
-    @staticmethod
-    def dm_chunks(text):
-        from .display import chunks
-        return chunks(text, 1800)
-
     async def error(self, interaction, message):
+        parts = messages({'title':'Could not finish', 'icon':'⚠️', 'text':message})
         if interaction.response.is_done():
             if interaction.extras.pop('ua_deferred_private', None) is False:
                 # The first followup inherits a public defer's visibility.
                 # Finish that response without exposing the private error.
-                await interaction.edit_original_response(content='This command could not finish. See the private reply.',
+                await interaction.edit_original_response(content='⚠️ **Could not finish**\n\nSee the private reply for details.',
                     allowed_mentions=discord.AllowedMentions.none())
-            await interaction.followup.send(message, ephemeral=True, allowed_mentions=discord.AllowedMentions.none())
+            await interaction.followup.send(parts[0], ephemeral=True, allowed_mentions=discord.AllowedMentions.none())
         else:
-            await interaction.response.send_message(message, ephemeral=True, allowed_mentions=discord.AllowedMentions.none())
+            await interaction.response.send_message(parts[0], ephemeral=True, allowed_mentions=discord.AllowedMentions.none())
+        for part in parts[1:]:
+            await interaction.followup.send(part, ephemeral=True, allowed_mentions=discord.AllowedMentions.none())
 
     async def command_error(self, interaction, error):
         underlying = getattr(error, 'original', error)
@@ -236,16 +237,14 @@ class HeroBot(discord.Client):
                 return
             if spec.special == 'guide':
                 await self.acknowledge(interaction, private=True)
-                await self.reply(interaction, content='Complete player handbook:',
+                await self.reply(interaction, content='📖 **Player handbook**\n\nYour complete guide to heroes, Quirks, dice, and battles.',
                     file=discord.File(io.BytesIO(handbook_bytes()),filename='PLAYER_HANDBOOK.md'),ephemeral=True)
                 return
             if spec.special == 'panel':
                 await self.acknowledge(interaction)
                 self.game.execute(acting,'roster')
                 result = self.game.execute(acting,'battle_status')
-                # One panel message, capped to Discord's combined embed limit.
-                board = self.panel_embeds(result)
-                message = await self.reply(interaction, embeds=board,allowed_mentions=discord.AllowedMentions.none())
+                message = await self.reply(interaction, content=battle_panel(result),allowed_mentions=discord.AllowedMentions.none())
                 self.game.execute(acting,'board_set',channel_id=interaction.channel_id,message_id=message.id)
                 return
             private = spec.private
@@ -267,7 +266,11 @@ class HeroBot(discord.Client):
         except GameError as exc:
             await self.error(interaction,str(exc))
             return False
-        await self.send_result(interaction,result,private=private)
+        presentation = dict(result)
+        presentation.setdefault('title', operation_name.replace('_', ' ').capitalize())
+        presentation.setdefault('icon', {'session':'📅', 'mission':'📍', 'spar':'🥊', 'battle':'⚔️',
+                                       'enemy':'🦹', 'objective':'🎯'}.get(operation_name.split('_')[0], '✅'))
+        await self.send_result(interaction,presentation,private=private)
         await self.refresh_board(interaction.guild_id)
         return True
 
@@ -295,25 +298,20 @@ class HeroBot(discord.Client):
         view = RollView(self,interaction.guild_id,result['pending_id']) if result.get('type') == 'pending' else None
         if result.get('type') == 'file':
             payload = io.BytesIO(json.dumps(result['data'],ensure_ascii=False,indent=2).encode())
-            await self.reply(interaction,content=result.get('text','Export'),file=discord.File(payload,filename=result['filename']),ephemeral=private,
+            parts = messages(dict(result, icon='📁'))
+            await self.reply(interaction,content=parts[0],file=discord.File(payload,filename=result['filename']),ephemeral=private,
                              allowed_mentions=discord.AllowedMentions.none())
+            for part in parts[1:]:
+                await interaction.followup.send(content=part,ephemeral=private,allowed_mentions=discord.AllowedMentions.none())
             return
-        parts = embeds(result)
-        options = {'embed':parts[0], 'ephemeral':private, 'allowed_mentions':discord.AllowedMentions.none()}
+        display_name = getattr(interaction.user, 'display_name', None) or getattr(interaction.user, 'name', 'Player')
+        parts = messages(result, display_name=display_name)
+        options = {'content':parts[0], 'ephemeral':private, 'allowed_mentions':discord.AllowedMentions.none()}
         if view is not None:
             options['view'] = view
         await self.reply(interaction,**options)
         for part in parts[1:]:
-            await interaction.followup.send(embed=part,ephemeral=private,allowed_mentions=discord.AllowedMentions.none())
-
-    def panel_embeds(self, result):
-        # Detailed /battle status may span messages; the pinned summary stays under 6000.
-        text = result_text(result)
-        if len(text) > 5500:
-            text = text[:5350] + '\n… Use /battle status for the complete battle.'
-        from .display import chunks
-        return [discord.Embed(title='Live battle · ' + result['title'][:180],description=piece,colour=0x253E55)
-                for piece in chunks(text,3500)]
+            await interaction.followup.send(content=part,ephemeral=private,allowed_mentions=discord.AllowedMentions.none())
 
     async def refresh_board(self, guild):
         lock = self.board_locks.setdefault(guild,asyncio.Lock())
@@ -326,7 +324,8 @@ class HeroBot(discord.Client):
                 channel = self.get_channel(board['channel_id']) or await self.fetch_channel(board['channel_id'])
                 message = await channel.fetch_message(board['message_id'])
                 result = self.game.execute(Actor(guild,self.game.owner_id),'battle_status')
-                await message.edit(embeds=self.panel_embeds(result),allowed_mentions=discord.AllowedMentions.none())
+                # Clear embeds on panels created by older releases during migration.
+                await message.edit(content=battle_panel(result),embeds=[],allowed_mentions=discord.AllowedMentions.none())
             except discord.HTTPException as exc:
                 log.warning('Live panel unavailable: %s. GM can post /battle panel again.',type(exc).__name__)
 
