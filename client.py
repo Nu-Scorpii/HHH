@@ -168,13 +168,14 @@ class HeroBot(discord.Client):
             state = json.loads(row['state'])
             if state.get('pending'):
                 self.add_view(RollView(self, int(row['guild']), state['pending']['id']))
+        # Global registration makes ordinary rolls available in every installed
+        # server, including future servers. Keep the optional fast guild mirror.
+        synced = await self.tree.sync()
         if self.development_guild:
             guild = discord.Object(id=self.development_guild)
             self.tree.copy_global_to(guild=guild)
-            synced = await self.tree.sync(guild=guild)
-        else:
-            synced = await self.tree.sync()
-        log.info('Registered %s slash commands across %s root commands (v%s); /roll ready.',
+            await self.tree.sync(guild=guild)
+        log.info('Registered %s slash commands globally across %s root commands (v%s); /roll ready.',
                  len(SPECS), len(synced), __version__)
 
     async def on_ready(self):
@@ -183,8 +184,8 @@ class HeroBot(discord.Client):
     async def on_message(self, message):
         if message.author.bot:
             return
-        reply = self.game.private.handle(message.author.id, message.content, is_dm=isinstance(message.channel, discord.DMChannel),
-                                         guild_ids=[g.id for g in self.guilds])
+        reply = self.game.private.handle(message.author.id, message.content,
+                                         is_dm=isinstance(message.channel, discord.DMChannel))
         if reply:
             # Replies remain exclusively in the creator's DM channel.
             for piece in messages({'title':'Creator controls', 'icon':'🔒', 'text':reply}):

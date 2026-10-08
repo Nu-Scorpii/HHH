@@ -1,3 +1,14 @@
+# Version 1.3.0 — October 8, 2026
+
+- Simplified the creator-only `!Rigger` DM controls to `luck good/bad/normal`, `force NUMBER`, and `shift +N/-N` or a result category. Optional player, uses, scope, and minutes arguments work in any order.
+- Made creator settings universal across current and future servers, with shared use budgets and no server selection. Automatically migrates existing queues while preserving their legacy face-forcing behavior, counts, expiry, and history.
+- Luck changes probabilities using complete legal numeric candidates. Exact forcing targets kept stat results or final raw totals, including visible modifiers and bonuses. Shifts apply once per command, respect bounds, and keep faces and totals consistent.
+- Added lasting controls, targeted neutral luck, per-server private audit records, and bounded search for sparse custom totals. Impossible exact results remain queued; text faces still support explicit forcing.
+- Registers the public slash tree globally even when an optional fast guild mirror is configured. Public command count remains **85 across 20 roots**; creator controls remain absent from player-facing Discord replies, slash menus, help, FAQs, and campaign exports.
+- Fixed numeric negative-use input acceptance and overflowing clear IDs. Updated deployment instructions and corrected the old offline command count.
+
+The automated suite passes **249 tests**, including 75 new regressions. Keep the attached Railway volume and existing variables. The private schema migration happens atomically at startup; no manual database change is required. Rebuild and upload `bot.pyz` after source changes.
+
 # Version 1.2.0 — October 7, 2026
 
 - Replaced the public `/dice` group with `/roll`. `/roll` defaults to 1d20 and accepts a dice expression, bonus points, keep-high/low, and optional JSON faces for `d[custom]`.

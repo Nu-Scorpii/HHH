@@ -97,12 +97,13 @@ def test_private_raw_pool_faces_modifiers_and_quoted_labels(world):
     assert world.store.db.execute('SELECT sum(remaining) FROM rig_rules').fetchone()[0] == 0
 
 
-def test_private_ttl_and_guild_isolation(world):
-    assert 'select' in dm(world,'!Rigger status',guilds=(100,200))
-    assert 'Selected' in dm(world,'!Rigger server 100',guilds=(100,200))
-    dm(world,'!Rigger next any max 2 dice 1')
+def test_private_ttl_and_universal_shared_uses(world):
+    assert dm(world,'!Rigger status',guilds=(100,200)) == 'No queued rules.'
+    assert 'no longer needed' in dm(world,'!Rigger server 100',guilds=(100,200))
+    dm(world,'!Rigger next any max 3 dice 1')
     r = world.game.execute(Actor(200,2),'dice_roll',expression='d10')
-    assert r['dice']['total'] == 5
+    assert r['dice']['total'] == 10
+    assert world.call('dice_roll',2,expression='d10')['dice']['total'] == 10
     world.now += timedelta(seconds=61)
     assert world.call('dice_roll',2,expression='d10')['dice']['total'] == 5
     assert dm(world,'!Rigger status') == 'No queued rules.'

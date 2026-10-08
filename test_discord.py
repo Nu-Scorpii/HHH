@@ -171,12 +171,11 @@ def test_pending_buttons_restored_after_restart_without_login(world):
 def test_private_command_replies_only_in_creator_one_to_one_dm(world):
     async def run():
         bot = HeroBot(world.game)
-        bot._connection._guilds[100] = SimpleNamespace(id=100)
         for user,channel_type in [(2,discord.DMChannel),(1,discord.TextChannel),(1,discord.GroupChannel),(1,discord.DMChannel)]:
             channel = Mock(spec=channel_type)
             channel.send = AsyncMock()
             message = SimpleNamespace(author=SimpleNamespace(id=user,bot=False),channel=channel,
-                                      content='!Rigger next any 8',guild=None if channel_type != discord.TextChannel else SimpleNamespace(id=100))
+                                      content='!Rigger force 8',guild=None if channel_type != discord.TextChannel else SimpleNamespace(id=100))
             await bot.on_message(message)
             if user == 1 and channel_type == discord.DMChannel:
                 channel.send.assert_awaited_once()

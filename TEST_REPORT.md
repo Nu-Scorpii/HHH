@@ -1,8 +1,8 @@
 # Verification report
 
-Checked October 7, 2026 with Python 3.12 and the pinned dependencies.
+Checked October 8, 2026 with Python 3.12 and the pinned dependencies.
 
-**174 automated tests passed.** The real Discord application-command tree serialized successfully: **85 slash commands across 20 root commands**. `pip check` reports no broken requirements. Offline checks made no Discord network login.
+**249 automated tests passed.** The real Discord application-command tree serialized successfully: **85 slash commands across 20 root commands**. `pip check` reports no broken requirements. Offline checks made no Discord network login.
 
 The Railway TOML parsed successfully. The real `bot.pyz` passed offline startup from an isolated directory containing only `Dockerfile`, `requirements.txt`, `railway.toml`, and `bot.pyz`. Every Docker COPY input is present in that flat directory. The bundle contains the current Python sources and full handbook, without credentials or private documentation. Its bundled backup CLI made a complete online SQLite backup. Docker CMD and the legacy TOML start the same bundle, so startup does not depend on legacy TOML support. These checks verify the packaged layout and executable app, not a real container build or live deployment.
 
@@ -18,6 +18,18 @@ Covered behavior:
 - Full online SQLite backup, offline restoration, preservation of the previous database, refusal of unsafe overwrites, and Railway startup refusal when persistent storage is missing/misconfigured.
 - FAQ topic browsing, exact-ID and keyword search, autocomplete, private defaults/public opt-in, editing permissions, validation rollback, server isolation, legacy saves, persistence, availability during waiting rolls, and exclusion of private controls from built-in answers.
 - Railway volume-derived default database path, valid overrides, all standard Railway environment markers, and rejection of root paths, traversal, and symlink escape outside the persistent volume.
+
+New regression coverage in version 1.3.0:
+
+- Universal creator-only controls from a DM with no server cache/selection, including future server IDs, player targeting, scopes, shared counts, TTL boundaries, lasting rules, and targeted neutral luck.
+- Final-total forcing for mixed/signed/large pools, expression modifiers, bonuses, keep-high/low, and numeric custom dice. Edge/Pressure rolls preserve their count, legal faces, and kept-value selection.
+- Probability adjustments retain all natural results in a seeded distribution check; complete candidates are chosen by signed final total. Exact forces bypass luck without consuming its uses; luck and hidden shifts combine with private audit records.
+- Numeric shifts occur once per pool, clamp to limits, and retain legal sparse faces. Category changes skip unavailable grades; incompatible forces remain queued without consuming a use.
+- Sparse custom total search matches exhaustive legal combinations on small positive/signed pools; the search-budget fallback retains valid faces and arithmetic without freezing the bot.
+- Invalid control arguments fail atomically, including negative use counts, malformed/overflowing user IDs, duplicate options, and overflowing clear IDs. Repeated receipts and failures after drawing roll back usage/audit changes.
+- Tracked checks, battles, sparring, and Plus Ultra continue to use the same roll handler. Creator data stays absent from public messages and campaign exports.
+- Old schemas/full backups migrate idempotently without losing campaign state or legacy queue semantics; new persistent modes and audit records survive full backup/restore and restart.
+- The real Discord command tree synchronizes globally and mirrors the optional configured guild, preserving 85 public commands and hidden creator controls.
 
 New regression coverage in version 1.2.0:
 
@@ -49,7 +61,7 @@ New regression coverage in version 1.1.1:
 - Restore preserves original corrupt database and WAL/SHM bytes, successfully restores a valid backup, rejects invalid backup JSON shapes, and leaves current data untouched when the restore source is invalid.
 - Zero server IDs are rejected before database creation or Discord connection.
 
-Live Railway inspection confirmed the original service had no attached volume. A persistent volume was attached to that service at `/data` and the service was redeployed; runtime logs confirmed the volume mounted and the storage error disappeared. Startup then exposed the Discord event-dispatcher conflict fixed in this release. The final live deployment result is reported separately with the delivered fix.
+Earlier live releases attached persistent storage at `/data` and fixed the Discord event-dispatcher conflict. This update preserves that volume. The version 1.3.0 deployment and its startup/connection verification are reported with the delivered update; multi-server gameplay tests here use local engine/Discord test doubles, not live player messages.
 
 Known verification limits: local tests do not use a Discord token. Channel permissions and full gameplay against live Discord, as well as reconnect behavior against a real Gateway, require separate integration checks. Docker is unavailable in the workspace; the container has not been built here. The Dockerfile runs offline command validation during its build.
 

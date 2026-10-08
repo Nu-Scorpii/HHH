@@ -30,7 +30,7 @@ Leave the Interactions Endpoint URL empty. This bot receives interactions throug
 
 ## 2. Fix the Railway build and deploy
 
-Start with **START_HERE.md** if you are using GitHub's web file uploader. This release is **1.2.0**.
+Start with **START_HERE.md** if you are using GitHub's web file uploader. This release is **1.3.0**.
 
 The error `COPY ua_bot ./ua_bot ... "/ua_bot": not found` means that Docker cannot see the old source folder in its build context. An upload that flattens or omits folders, or a Railway Root Directory pointing at the wrong folder, can cause it. This version runs a prebuilt **`bot.pyz`**, which contains all bot modules, the player handbook, and the backup utility.
 
@@ -63,14 +63,14 @@ Set these service variables:
 |---|---|
 | `DISCORD_TOKEN` | Token from your Discord application's Bot page |
 | `BOT_OWNER_ID` | Your personal Discord user ID |
-| `DISCORD_GUILD_ID` | Your server ID; recommended for this single-server campaign |
+| `DISCORD_GUILD_ID` | Optional server ID for a fast command-registration mirror; commands always register globally |
 | `BOT_DB_PATH` | `/data/ua.sqlite3` for a volume mounted at `/data` |
 
 Railway supplies `RAILWAY_VOLUME_MOUNT_PATH` for an attached volume. Do not define it manually. The bot refuses to start on Railway if storage is absent or the database resolves outside that mount, including traversal or symlinks. If `BOT_DB_PATH` is omitted, it uses `ua.sqlite3` inside the actual volume mount. A custom existing database filename is supported; retain it when updating.
 
 Use **one replica**, one region, and a continuously running service. Disable Serverless/App Sleeping, remove any cron schedule, and leave HTTP healthcheck paths and public domains unset. This is a Discord Gateway worker. The Dockerfile uses Python 3.12, installs pinned dependencies, copies `bot.pyz`, validates the bundle offline, and starts it. Railway charges follow your account's plan; check your dashboard.
 
-Watch runtime logs for `UA Hero College connected as bot ID ...`. Then use `/help`, `/faq`, `/guide`, and `/hero sheet`. With `DISCORD_GUILD_ID` set, commands register for that server on startup. Leaving it empty registers globally; keep this choice consistent to avoid duplicate old global/server registrations. The bot must be installed in that server.
+Watch runtime logs for `UA Hero College connected as bot ID ...`. Then use `/help`, `/faq`, `/guide`, and `/hero sheet`. Commands always register globally for every server the bot joins. An existing `DISCORD_GUILD_ID` adds a fast mirror in that server; it does not limit the bot to that server. You can retain it during this update. The bot must be installed with application-command permissions in each server.
 
 ### Railway CLI alternative
 
@@ -93,7 +93,7 @@ Choose the project, environment, and bot service you configured. This uploads th
 
 ### Updating the same service
 
-Keep the existing token, IDs, database path, volume, and single replica. Upload the four new deployment files together and redeploy the existing service. Character sheets, battles, pending rolls, sessions, FAQs, and creator settings remain in the saved database. This release requires no schema migration. Do not replace the volume or delete the database as part of this code update.
+Keep the existing token, IDs, database path, volume, and single replica. Upload the four new deployment files together and redeploy the existing service. Character sheets, battles, pending rolls, sessions, FAQs, and creator settings remain in the saved database. Startup automatically migrates the private creator-control table; no manual database changes are needed. Do not replace the volume or delete the database as part of this code update.
 
 If you edit the readable Python source or handbook, rebuild the bundle before uploading it:
 
@@ -190,7 +190,7 @@ python -m pytest -q
 
 For local play, copy `.env.example` to `.env`, fill in the token and IDs, and keep `BOT_DB_PATH=data/ua.sqlite3`. Start with `python -m ua_bot`. Run only one copy of the bot against your live server/database. The project ignores local credentials, saves, and virtual environments during source and container uploads.
 
-The offline check validates the real Discord command tree without a token. The package has passed **174 automated tests** locally, including Gateway event delivery and the new roll/message behavior, and its pinned dependencies pass `pip check`. Offline checks do not log in to Discord. Live deployment verification is specific to your Railway environment. The container itself has not been built in this workspace. The real bundle also passed that check from an isolated four-file upload directory, including its embedded handbook and backup command. The Dockerfile runs the same bundle validation during a build.
+The offline check validates the real Discord command tree without a token. The package has passed **249 automated tests** locally, including Gateway event delivery, universal creator controls, legal roll arithmetic, probability adjustments, and saved-data migration, and its pinned dependencies pass `pip check`. Offline checks do not log in to Discord. Live deployment verification is specific to your Railway environment. The container itself has not been built in this workspace. The real bundle also passed that check from an isolated four-file upload directory, including its embedded handbook and backup command. The Dockerfile runs the same bundle validation during a build.
 
 Warnings about optional voice libraries are harmless for this text-command bot. Python 3.12 may also show an upstream `audioop` deprecation warning; the Dockerfile pins Python 3.12.
 

@@ -36,7 +36,7 @@ class Store:
             CREATE TABLE IF NOT EXISTS rig_rules (
                 id INTEGER PRIMARY KEY, guild TEXT NOT NULL, target TEXT NOT NULL,
                 outcome TEXT NOT NULL, scope TEXT NOT NULL, remaining INTEGER NOT NULL,
-                expires REAL NOT NULL, creator TEXT NOT NULL);
+                expires REAL NOT NULL, creator TEXT NOT NULL, mode TEXT NOT NULL DEFAULT 'face');
             CREATE TABLE IF NOT EXISTS rig_audit (
                 id INTEGER PRIMARY KEY, guild TEXT NOT NULL, target TEXT NOT NULL,
                 rule_id INTEGER NOT NULL, natural TEXT NOT NULL, final TEXT NOT NULL, created TEXT NOT NULL);

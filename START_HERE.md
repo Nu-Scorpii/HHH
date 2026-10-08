@@ -1,4 +1,4 @@
-# Fix your Railway deployment — version 1.2.0
+# Fix your Railway deployment — version 1.3.0
 
 ## Missing persistent volume
 
@@ -11,7 +11,7 @@ If runtime logs say **"Railway needs an attached persistent volume, recommended 
 
 Railway supplies `RAILWAY_VOLUME_MOUNT_PATH` automatically when the volume is attached. Do not set that variable yourself. The startup check protects saves from disappearing during a restart or redeploy.
 
-If the next error mentions **`HeroBot.dispatch()`** or **`coroutine 'HeroBot.dispatch' was never awaited`**, upload this release's rebuilt **`bot.pyz`** to the repository root and redeploy the same service. Version 1.1.2 fixes a game method that conflicted with Discord's event dispatcher. Keep the attached volume; this code update needs no database migration.
+If the next error mentions **`HeroBot.dispatch()`** or **`coroutine 'HeroBot.dispatch' was never awaited`**, upload this release's rebuilt **`bot.pyz`** to the repository root and redeploy the same service. Version 1.1.2 fixes a game method that conflicted with Discord's event dispatcher. Keep the attached volume; private creator settings migrate automatically at startup.
 
 ## Earlier missing-folder build failure
 
@@ -72,20 +72,21 @@ For a new game, attach a persistent volume to the bot service at **`/data`** and
 ```text
 DISCORD_TOKEN=your existing bot token
 BOT_OWNER_ID=your personal Discord user ID
+# Optional fast mirror; commands also register globally:
 DISCORD_GUILD_ID=your Discord server ID
 BOT_DB_PATH=/data/ua.sqlite3
 ```
 
 Put these values in Railway's service variables. Keep token values out of GitHub. Railway supplies `RAILWAY_VOLUME_MOUNT_PATH` automatically when a volume is attached. See [Railway volumes](https://docs.railway.com/volumes).
 
-An existing database using a different filename or volume mount should retain its current path inside that volume. This release uses the same database schema as the previous version and needs no migration.
+An existing database using a different filename or volume mount should retain its current path inside that volume. The campaign schema is unchanged. Startup automatically migrates private creator settings and preserves their counts, expiry, and history; no manual migration is needed.
 
 ## 4. Redeploy and check
 
 Deploy the new commit on the same service. The build will copy `bot.pyz` and print:
 
 ```text
-Validated 88 slash commands across 20 root commands. No network login performed.
+Validated 85 slash commands across 20 root commands. No network login performed.
 ```
 
 After the build, runtime logs should show:
