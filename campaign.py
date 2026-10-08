@@ -8,7 +8,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from .core import operation
 from .dice import parse_faces
 from .faq import BY_KEY, CATEGORIES, response as faq_response
-from .rules import DICE, ITEMS, MOVES, STATS, TALENTS, GameError, clean, require
+from .rules import DICE, ITEMS, MOVES, STATS, TALENTS, GameError, clean, ids, require
 
 
 def new_hero(user, name, hero_name, age, goal, cooperation):
@@ -66,7 +66,71 @@ class Campaign:
         require(c.uid not in c.state['characters'], "You already have a hero. Use /hero edit instead.")
         require(18 <= age <= 150, "Use an adult age from 18–150 for this college AU.")
         c.state['characters'][c.uid] = new_hero(c.uid, name, hero_name, age, goal, cooperation)
-        return {'title': 'Hero draft created', 'text': 'Next: /hero stats, /hero quirk, /hero moves, /hero talent, then /hero submit. Shared stat increases are available through /hero upgrade.'}
+        saved = c.state.get('creation_rolls', {}).pop(c.uid, None)
+        if saved:
+            c.state['characters'][c.uid].update(stats=copy.deepcopy(saved), creation_roll=copy.deepcopy(saved))
+        return {'title': 'Hero created', 'text': 'Next: /hero quirk, then /hero submit.\nOptional: /hero roll assigns your starting dice; /hero build changes your two moves and Talent.\nYou start with 6 Health and 3 Energy.'}
+
+    @operation(pending=True)
+    def hero_roll(self, c):
+        h = c.state['characters'].get(c.uid)
+        saved = h.get('creation_roll') if h else c.state.get('creation_rolls', {}).get(c.uid)
+        if saved:
+            return {'type':'creation', 'title':'Starting stats', 'stats':copy.deepcopy(saved),
+                    'text':'Your saved starting roll. No reroll or stat change.'}
+        require(not c.state['pending'], 'Resolve the waiting roll before making new starting stats.')
+        c.downtime()
+        require(not h or not h['approved'] and h['increases_applied'] == 0 and h['training'] == 0,
+                'Starting rolls are for new drafts. Use /hero upgrade for earned growth.')
+        pending = c.state.setdefault('creation_rolls', {})
+        require(h is not None or len(pending) < 100, 'Create your hero first; the saved starting-roll list is full.')
+        pool, stats = [10, 8, 8, 6], {}
+        for stat in STATS:
+            value = self.rng.choice(pool)
+            pool.remove(value)
+            stats[stat] = value
+        if h:
+            h.update(stats=copy.deepcopy(stats), creation_roll=copy.deepcopy(stats), submitted=False)
+            text = 'Saved to your draft. Next: /hero quirk, then /hero submit.'
+        else:
+            pending[c.uid] = copy.deepcopy(stats)
+            text = 'Saved for you. /hero create will use these stats automatically.'
+        return {'type':'creation', 'title':'Starting stats', 'stats':stats, 'text':text}
+
+    @operation
+    def hero_build(self, c, *, first='', second='', talent='', item=''):
+        c.downtime()
+        h = c.hero(approved=False)
+        first, second, talent = first or h['moves'][0], second or h['moves'][1], talent or h['talent']
+        item = item or h['item'] or 'none'
+        starting = (not h['approved'] and h['training'] == 0 and h['increases_applied'] == 0
+                    and len(h['known_moves']) == 2 and len(h['known_talents']) == 1 and not h['known_items'] and not h['unlock_requests'])
+        if starting:
+            require(item == 'none', 'Starting heroes have no special item.')
+            self.hero_moves(c, first=first, second=second)
+            self.hero_talent(c, talent=talent)
+        else:
+            self.hero_prepare(c, first=first, second=second, talent=talent, item=item)
+        return {'title':'Loadout saved', 'text':'Two moves and one Talent saved. Use /hero sheet to view them.'}
+
+    @operation
+    def team_help(self, c, *, user, method='Help my teammate.', task='', objective=''):
+        battle = c.state['battle']
+        if battle and battle['phase'] != 'finished':
+            return self.battle_help(c, user=user, method=method, task=task or 'attack', objective=objective)
+        require(not objective, 'Objectives are used in a battle.')
+        return self.ordinary_help(c, user=user, method=method, task=task or 'check')
+
+    @operation(gm=True)
+    def session_open(self, c, *, name, side=False, prep_theme='', participants=''):
+        users = ids(participants) if participants.strip() else []
+        require(len(users) <= 20, 'List at most 20 attendees.')
+        result = self.session_start(c, name=name, side=side, prep_theme=prep_theme)
+        for user in users:
+            self.session_mark(c, user=user)
+        if users:
+            result['text'] += f' Marked {len(users)} participant(s).'
+        return result
 
     @operation
     def hero_edit(self, c, *, name, hero_name, age, goal, cooperation):
@@ -101,31 +165,31 @@ class Campaign:
         h['quirk'] = {'name': clean(name, 80), 'ability': clean(ability, 500), 'ordinary': clean(ordinary),
                       'reach': reach, 'cannot': clean(cannot), 'limits': clean(limits)}
         h['approved'] = h['submitted'] = False
-        return {'text': 'Quirk card saved. Your GM will review its abilities, limits, and chosen moves. Next: /hero moves.'}
+        return {'text': 'Quirk saved. Next: /hero submit. Optional: /hero build changes your moves and Talent.'}
 
     @operation
     def hero_moves(self, c, *, first, second, first_name='', second_name=''):
         c.downtime()
         h = c.hero(approved=False)
         require(first in MOVES and second in MOVES and first != second, "Choose two different move templates.")
-        require(not h['approved'] and h['training'] == 0 and not h['unlock_requests'], "Use /hero prepare for learned moves; unlock new moves with Training.")
-        require(len(h['known_moves']) == 2, "Use /hero prepare for an established character.")
+        require(not h['approved'] and h['training'] == 0 and not h['unlock_requests'], "Use /hero build for learned moves; unlock new moves with Training.")
+        require(len(h['known_moves']) == 2, "Use /hero build for an established character.")
         h['moves'] = h['known_moves'] = [first, second]
         h['move_names'] = {first: clean(first_name, 80, empty=True) or MOVES[first]['name'],
                            second: clean(second_name, 80, empty=True) or MOVES[second]['name']}
         h['submitted'] = False
-        return {'text': 'Two starting moves saved. Next: /hero talent.'}
+        return {'text': 'Two starting moves saved. Next: /hero build.'}
 
     @operation
     def hero_talent(self, c, *, talent):
         c.downtime()
         h = c.hero(approved=False)
         require(talent in TALENTS, "Choose a listed Talent.")
-        require(not h['approved'] and len(h['known_talents']) == 1 and h['training'] == 0, "Use /hero prepare for an established character.")
+        require(not h['approved'] and len(h['known_talents']) == 1 and h['training'] == 0, "Use /hero build for an established character.")
         h['talent'] = talent
         h['known_talents'] = [talent]
         h['submitted'] = False
-        return {'text': 'Talent saved. Use /hero gear if desired, then /hero submit.'}
+        return {'text': 'Talent saved. Use /hero notes if desired, then /hero submit.'}
 
     @operation
     def hero_gear(self, c, *, gear):
@@ -138,12 +202,12 @@ class Campaign:
         h = c.hero(approved=False)
         require(h['quirk'], "Write your Quirk with /hero quirk first.")
         h['submitted'] = True
-        return {'title': f"{h['hero_name']} is ready for review", 'hero': h, 'text': 'GM: review the Quirk and move fit, then use /gm approve.'}
+        return {'title': f"{h['hero_name']} is ready for review", 'hero': h, 'details':True, 'text': 'GM: review the Quirk and move fit, then use /gm approve.'}
 
     @operation(pending=True)
-    def hero_sheet(self, c, *, user=None):
+    def hero_sheet(self, c, *, user=None, details=False):
         h = c.hero(user, approved=False)
-        return {'title': h['hero_name'], 'hero': h, 'pending_increases': c.state['milestones'] - h['increases_applied'],
+        return {'title': h['hero_name'], 'hero': h, 'details':details, 'pending_increases': c.state['milestones'] - h['increases_applied'],
                 'weekly_training': h['training_weeks'].get(week_key(self.clock(), c.state['settings']), 0)}
 
     @operation
@@ -308,7 +372,7 @@ class Campaign:
                               'participants': [], 'started': self.clock().isoformat()}
         for h in c.state['characters'].values():
             h['plus_used'] = False
-        return {'text': f"Official {'side' if side else 'main'} session started. Plus Ultra refreshed. GM: mark meaningful participation with /session mark."}
+        return {'text': f"Official {'side' if side else 'main'} session started. Plus Ultra refreshed. GM: mark meaningful participation with /gm session mark."}
 
     @operation(gm=True)
     def session_mark(self, c, *, user, participated=True):

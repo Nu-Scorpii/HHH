@@ -85,7 +85,7 @@ class Core:
             before = copy.deepcopy(state)
             context = Context(self, actor, state, before)
             require(not method.needs_gm or context.gm, "Only the creator or configured GM role can do that.")
-            require(not state['pending'] or method.allow_pending, "Resolve the waiting roll first with /resolve or its buttons.")
+            require(not state['pending'] or method.allow_pending, "Resolve the waiting roll first with /battle resolve or its buttons.")
             result = method(context, **kwargs)
             require(isinstance(result, dict), "The command did not produce a valid result.")
             if context.state != before:
@@ -141,7 +141,12 @@ class Core:
                               'rollback': c.before}
         return {'type': 'pending', 'title': f"{hero['hero_name']} · {scope}", 'roll': roll,
                 'pending_id': token, 'user_id': hero['user_id'], 'method': method,
-                'text': "Choose Accept result or Plus Ultra. /resolve does the same. Effects apply after your choice."}
+                'text': "Keep this roll, or use Plus Ultra (−2 Health, once per session)."}
+
+    @operation(pending=True)
+    def roll_decision(self, c, *, choice='show'):
+        require(choice in {'show','keep','plus'}, 'Choose show, keep, or plus.')
+        return self.pending_status(c) if choice == 'show' else self.resolve(c, plus_ultra=choice == 'plus')
 
     @operation(pending=True)
     def resolve(self, c, *, plus_ultra=False, pending_id=None):
@@ -184,7 +189,7 @@ class Core:
         if not p:
             return {'text': 'No roll is waiting.'}
         return {'type': 'pending', 'title': f"Waiting for {c.hero(p['user_id'])['hero_name']}",
-                'roll': p['roll'], 'pending_id': p['id'], 'user_id': p['user_id'], 'text': 'Use /resolve or the buttons.'}
+                'roll': p['roll'], 'pending_id': p['id'], 'user_id': p['user_id'], 'text': 'Use /battle resolve or the buttons.'}
 
     @operation(pending=True)
     def roll(self, c, *, dice='1d20', bonus=0, keep='all', faces=''):

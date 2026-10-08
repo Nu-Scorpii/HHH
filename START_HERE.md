@@ -1,4 +1,4 @@
-# Fix your Railway deployment — version 1.3.0
+# Fix your Railway deployment — version 2.0.0
 
 ## Missing persistent volume
 
@@ -79,14 +79,14 @@ BOT_DB_PATH=/data/ua.sqlite3
 
 Put these values in Railway's service variables. Keep token values out of GitHub. Railway supplies `RAILWAY_VOLUME_MOUNT_PATH` automatically when a volume is attached. See [Railway volumes](https://docs.railway.com/volumes).
 
-An existing database using a different filename or volume mount should retain its current path inside that volume. The campaign schema is unchanged. Startup automatically migrates private creator settings and preserves their counts, expiry, and history; no manual migration is needed.
+An existing database using a different filename or volume mount should retain its current path inside that volume. Existing campaigns and waiting buttons are retained. The simple creator controls start at normal; older queues are archived and never executed. New settings persist across restarts. No manual database migration is needed.
 
 ## 4. Redeploy and check
 
 Deploy the new commit on the same service. The build will copy `bot.pyz` and print:
 
 ```text
-Validated 85 slash commands across 20 root commands. No network login performed.
+Validated 74 slash commands across 8 root commands. No network login performed.
 ```
 
 After the build, runtime logs should show:
@@ -95,7 +95,7 @@ After the build, runtime logs should show:
 UA Hero College connected as bot ID ...
 ```
 
-In Discord, try `/help`, `/faq question:energy`, `/guide`, and `/hero sheet`. Confirm your existing sheet and any waiting battle are present before starting the next session.
+In Discord, try `/help`, `/faq question:energy`, `/help topic:handbook`, and `/hero sheet`. Confirm your existing sheet and any waiting battle are present before starting the next session.
 
 If the build still says **`COPY ua_bot`**, it is using the old Dockerfile. Check that the four files were committed to the connected branch, at the root, and that you deployed that new commit. If it says **`bot.pyz: not found`**, upload the supplied `bot.pyz` next to the new Dockerfile.
 

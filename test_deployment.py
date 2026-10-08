@@ -49,7 +49,7 @@ def test_four_flat_files_supply_every_docker_copy_and_offline_startup(upload):
     result = run_bundle(upload, '--check')
     assert command == ['python', 'bot.pyz']
     assert result.returncode == 0, result.stderr
-    assert '85 slash commands across 20 root commands' in result.stdout
+    assert '74 slash commands across 8 root commands' in result.stdout
     assert 'No network login performed' in result.stdout
     assert not (upload/'data').exists()
 
@@ -69,13 +69,13 @@ def test_bundle_contains_current_sources_and_handbook_but_no_private_documents(u
 def test_bundled_backup_cli_makes_a_complete_online_backup(upload):
     w = World(upload/'game.sqlite3')
     w.create()
-    w.game.private.handle(1, '!Rigger next 2 max', is_dm=True, guild_ids=[100])
+    w.game.private.handle(1, '!Rigger force 10 2', is_dm=True, guild_ids=[100])
     original = w.state
     result = run_bundle(upload, 'backup', 'create', '--db', 'game.sqlite3', '--out', 'saved.sqlite3')
     assert result.returncode == 0, result.stderr
     validate(upload/'saved.sqlite3')
     saved = World(upload/'saved.sqlite3')
     assert saved.state == original
-    assert saved.store.db.execute('SELECT remaining FROM rig_rules').fetchone()[0] == 1
+    assert saved.game.private.load()['next']['value'] == 10
     saved.store.close()
     w.store.close()

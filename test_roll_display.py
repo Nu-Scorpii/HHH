@@ -31,10 +31,10 @@ class NeverRoll:
 def test_single_roll_bonus_and_reference_format(world, bonus, total):
     world.game.rng = Fixed(8)
     result = world.call('roll',2,dice='1d20',bonus=bonus)
-    expected = '🎲 **Rigel (Angel) rolled 1d20**\n\nRolls: `8`\n'
+    expected = '🎲 **Rigel (Angel) · 1d20**\n\nRolls: `8`\n'
     if bonus:
         expected += f'Bonus: `{bonus:+d}`\n'
-    expected += f'\n**Total: {total}**'
+    expected += f'**Total: {total}**'
     assert messages(result,display_name='Rigel (Angel)') == [expected]
     assert result['dice']['total'] == total
 
@@ -84,22 +84,22 @@ def test_per_roll_faces_do_not_create_or_overwrite_saved_dice(world):
 ])
 def test_invalid_roll_input_is_atomic_and_does_not_consume_override(world, options):
     world.game.rng = NeverRoll()
-    world.game.private.handle(1,'!Rigger next any max',is_dm=True,guild_ids=[100])
+    world.game.private.handle(1,'!Rigger force 20',is_dm=True,guild_ids=[100])
     before = world.state
     with pytest.raises(GameError):
         world.call('roll',2,**options)
     assert world.state == before
-    assert world.store.db.execute('SELECT remaining FROM rig_rules').fetchone()[0] == 1
+    assert world.game.private.load()['next']['value'] == 20
     assert world.store.db.execute('SELECT count(*) FROM rig_audit').fetchone()[0] == 0
 
 
 def test_override_changes_faces_then_adds_bonus_without_public_disclosure(world):
-    queued = world.game.private.handle(1,'!Rigger next 2 max 1 dice',is_dm=True,guild_ids=[100])
-    assert queued.startswith('Queued')
+    queued = world.game.private.handle(1,'!Rigger force 24 2',is_dm=True,guild_ids=[100])
+    assert queued.startswith('Next numeric roll')
     result = world.call('roll',2,dice='2d20+1',keep='high',bonus=3)
-    assert result['dice']['groups'][0]['rolls'] == [20,20]
+    assert max(result['dice']['groups'][0]['rolls']) == 20
     assert result['dice']['total'] == 24
-    assert world.store.db.execute('SELECT remaining FROM rig_rules').fetchone()[0] == 0
+    assert world.game.private.load()['next'] is None
     public = messages(result)[0].lower()
     assert not any(word in public for word in ('rigger','natural','override'))
 
@@ -119,7 +119,7 @@ def test_roll_slash_callback_uses_display_name_and_plain_content(world):
         i = interaction()
         await bot.run_spec(i,spec,{'dice':'1d20','bonus':3,'keep':'all','faces':''})
         sent = i.edit_original_response.call_args.kwargs
-        assert sent['content'].startswith('🎲 **Rigel (Angel) rolled 1d20**')
+        assert sent['content'].startswith('🎲 **Rigel (Angel) · 1d20**')
         assert '**Total: 8**' in sent['content']
         assert 'embed' not in sent and 'view' not in sent
         assert not sent['allowed_mentions'].everyone
@@ -160,7 +160,7 @@ def test_long_private_reply_keeps_every_continuation_private(world):
             assert call.kwargs['ephemeral'] is True
             assert length(call.kwargs['content']) <= 2000
             assert not call.kwargs['allowed_mentions'].users
-        assert messages({'text':''}) == ['✅ **UA Hero College**\n\nDone.']
+        assert messages({'text':''}) == ['✅ **Done**\n\nDone.']
         await bot.close()
     asyncio.run(run())
 
@@ -177,7 +177,7 @@ def test_existing_panel_migrates_to_plain_content_and_keeps_message(world):
         await bot.refresh_board(100)
         sent = message.edit.call_args.kwargs
         assert sent['embeds'] == []
-        assert sent['content'].startswith('⚔️ **Live battle')
+        assert sent['content'].startswith('⚔️ **Battle')
         assert length(sent['content']) <= 2000
         assert world.state['battle']['board']['message_id'] == 456
         await bot.close()
@@ -193,7 +193,7 @@ def test_large_battle_panel_prioritizes_waiting_decisions(world):
     result = world.call('battle_status',2)
     panel = battle_panel(result)
     assert length(panel) <= 2000
-    assert 'Waiting for **Hero 2**' in panel and '/resolve' in panel
+    assert 'Waiting for **Hero 2**' in panel and '/battle resolve' in panel
     for uid, hero in result['heroes'].items():
         if uid != '2':
             hero['hero_name'] = '*'*80

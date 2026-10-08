@@ -3,7 +3,6 @@
 from copy import deepcopy
 
 MAX_SEARCH = 100_000
-BANDS = {'miss': (1, 3), 'success': (4, 7), 'big': (8, 10**12)}
 
 
 def numeric(dice):
@@ -19,26 +18,14 @@ def nearest(values, wanted):
 
 
 def stat_result(natural, die, mode, outcome):
-    if mode == 'face':
-        wanted = die.forced(outcome)
-    elif mode == 'force':
-        wanted = 1 if outcome == 'min' else die.sides if outcome == 'max' else int(outcome)
+    if mode == 'force':
+        wanted = int(outcome)
         if not die.contains(wanted):
             return None
     elif mode == 'shift':
         wanted = clamp(natural['kept'] + int(outcome), 1, die.sides)
     else:
-        grade = 0 if natural['kept'] <= 3 else 1 if natural['kept'] <= 7 else 2
-        names = tuple(BANDS)
-        choices = (range(grade + 1, 3) if outcome == 'up' else range(grade - 1, -1, -1)) if outcome in ('up','down') else [names.index(outcome)]
-        wanted = None
-        for index in choices:
-            low, high = BANDS[names[index]]
-            if low <= die.sides:
-                wanted = clamp(natural['kept'], low, min(high, die.sides))
-                break
-        if wanted is None and outcome in ('up','down'):
-            wanted = natural['kept']
+        return None
     if wanted is None:
         return None
     result = dict(natural, rolls=list(natural['rolls']), kept=wanted)
@@ -190,24 +177,13 @@ def fit_total(natural, terms, low, high, preferred, *, approximate=False):
 
 def expression_result(natural, terms, mode, outcome):
     dice = variables(terms)
-    if mode == 'face':
-        forced = [die.forced(outcome) for die, _ in dice]
-        return rebuild(natural, forced) if all(value is not None for value in forced) else None
     if not numeric([die for die, _ in dice]):
         return None
     low, high = bounds(natural, terms)
     if mode == 'force':
-        wanted = low if outcome == 'min' else high if outcome == 'max' else int(outcome)
+        wanted = int(outcome)
         return fit_total(natural, terms, wanted, wanted, wanted)
     if mode == 'shift':
         wanted = clamp(natural['total'] + int(outcome), low, high)
         return fit_total(natural, terms, wanted, wanted, wanted, approximate=True)
-    grade = 0 if natural['total'] <= 3 else 1 if natural['total'] <= 7 else 2
-    names = tuple(BANDS)
-    choices = (range(grade + 1, 3) if outcome == 'up' else range(grade - 1, -1, -1)) if outcome in ('up','down') else [names.index(outcome)]
-    for index in choices:
-        lower, upper = BANDS[names[index]]
-        result = fit_total(natural, terms, lower, upper, natural['total'])
-        if result is not None:
-            return result
-    return deepcopy(natural) if outcome in ('up','down') else None
+    return None

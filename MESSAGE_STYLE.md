@@ -1,37 +1,48 @@
-# Discord message style — version 1.2.0
+# Simple Discord messages — 2.0.0
 
-Normal replies use plain Discord Markdown, matching the supplied reference: an emoji and bold heading, readable values, and a bold total. Discord supplies the avatar, bot name, timestamp, and slash-command attribution using your application's settings.
+The bot uses plain Discord messages: one short bold heading, the useful numbers, and the next step. Routine confirmations use **Done**; no repeated bot branding or internal operation names. Player sheets, help, FAQs, and errors retain their private defaults.
 
-`/roll dice:1d20`, with an example result of 8:
+## Raw dice
 
-🎲 **Rigel (Angel) rolled 1d20**
+For `/roll dice:1d20 bonus:3`:
 
-Rolls: `8`
-
-**Total: 8**
-
-`/roll dice:1d20 bonus:3`, with the same example die:
-
-🎲 **Rigel (Angel) rolled 1d20**
+🎲 **Rigel (Angel) · 1d20**
 
 Rolls: `8`  
-Bonus: `+3`
-
+Bonus: `+3`  
 **Total: 11**
 
-`/roll dice:2d20+2 keep:high bonus:3`, with example dice of 8 and 14:
+Each die remains visible. Multiple pools show their pool labels, modifiers appear separately, and keep-high/low shows the kept die. Text faces have no invented numeric total.
 
-🎲 **Rigel (Angel) rolled 2d20+2**
+## Starting stats
 
-Rolls: `8` · `14`  
-Kept (highest): `14`  
-Modifier: `+2`  
-Bonus: `+3`
+🎲 **Starting stats**
 
-**Total: 19**
+**Power:** `d10`  
+**Speed:** `d8`  
+**Wits:** `d8`  
+**Heart:** `d6`  
+Health: **6** · Energy: **3**
 
-Character cards use bold sections for resources, stats, student details, Quirk, prepared moves, loadout, growth, and trackers. Battle messages put turns and waiting decisions first, then heroes, foes, objectives, and routes. FAQs give each question a bold heading. Help, confirmations, attachments, and private errors use the same heading style.
+Saved for you. /hero create will use these stats automatically.
 
-Long messages continue in additional replies with matching headings. Each reply stays within Discord's 2000-character limit, including a conservative Unicode budget. The live battle panel stays in one message, with urgent decisions first and `/battle status` for full details. Existing panel messages have their old embeds removed when refreshed.
+## Tracked rolls
 
-The rolling player's server display name appears in raw roll headings. User-supplied names, labels, and notes are escaped, and mentions are disabled. Private sheets, FAQs, errors, and creator DMs keep their existing visibility.
+🎲 **Frostline · attack**
+
+`d10` · Edge · `3` · `8`  
+**8 · Big success**
+
+> Freeze the villain's escape route.
+
+Keep this roll, or use Plus Ultra (−2 Health, once per session).
+
+Buttons: **Keep** and **Plus Ultra · −2 HP**. Their persistent IDs stay compatible with saved waiting rolls. A default method is omitted when the player already described the action in chat.
+
+## Character cards and battles
+
+The default sheet shows Health, Energy, Plus Ultra, four stats, Quirk boundaries, prepared moves, Talent/item use, Training, Prep, and three note previews. Long descriptions are shortened. **`/hero sheet details:true`** shows every field and full move rules; `/hero submit` always uses that full card for GM review.
+
+Battle boards show phase, active hero, action/movement availability, Health, enemies, objectives, and waiting decisions. Players start a turn with their first action or move and finish with `/battle end`. Large boards retain a full `/battle status` readout.
+
+All text fits Discord's message limit through safe splitting. User names, custom faces, Quirk text, and notes are escaped; mentions are disabled. Existing embed panels switch to the new message style on their next refresh. Private controls never add a public badge, footer, or alternate style.

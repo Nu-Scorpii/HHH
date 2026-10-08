@@ -30,9 +30,9 @@ def test_real_slash_tree_is_valid_and_private_command_absent(world):
             assert len(command.get('description','')) <= 100
             assert len(command.get('options',[])) <= 25
             assert len(command.get('choices',[])) <= 25
-            if command.get('type') == 1 or not parent:
+            if command.get('type') in [1,2] or not parent:
                 path = (parent+' '+command['name']).strip()
-                if parent or not any(o.get('type') in [1,2] for o in command.get('options',[])):
+                if not any(o.get('type') in [1,2] for o in command.get('options',[])):
                     seen.append(path)
                 for option in command.get('options',[]):
                     check(option,path)
@@ -137,7 +137,7 @@ def test_plain_result_omits_none_view_and_mentions_are_disabled(world):
         await bot.send_result(i,{'text':'A completed action'},private=True)
         kwargs = i.response.send_message.call_args.kwargs
         assert 'view' not in kwargs and kwargs['ephemeral'] is True
-        assert kwargs['content'] == '✅ **UA Hero College**\n\nA completed action'
+        assert kwargs['content'] == '✅ **Done**\n\nA completed action'
         assert 'embed' not in kwargs and 'embeds' not in kwargs
         assert not kwargs['allowed_mentions'].everyone
         assert not kwargs['allowed_mentions'].users
@@ -181,6 +181,6 @@ def test_private_command_replies_only_in_creator_one_to_one_dm(world):
                 channel.send.assert_awaited_once()
             else:
                 channel.send.assert_not_awaited()
-        assert world.store.db.execute('SELECT count(*) FROM rig_rules').fetchone()[0] == 1
+        assert world.game.private.load()['next']['value'] == 8
         await bot.close()
     asyncio.run(run())

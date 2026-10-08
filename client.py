@@ -12,7 +12,7 @@ from .core import Actor
 from .display import battle_panel, messages
 from . import __version__
 from .faq import entries as faq_entries, search as faq_search
-from .rules import ITEMS, MOVES, TALENTS, GameError
+from .rules import GameError
 from .resources import handbook_bytes
 
 log = logging.getLogger(__name__)
@@ -28,8 +28,8 @@ class RollView(discord.ui.View):
     def __init__(self, bot, guild, token):
         super().__init__(timeout=None)
         self.bot, self.guild, self.token = bot, guild, token
-        for ultra, label, style in [(False, 'Accept result', discord.ButtonStyle.secondary),
-                                    (True, 'Plus Ultra', discord.ButtonStyle.primary)]:
+        for ultra, label, style in [(False, 'Keep', discord.ButtonStyle.secondary),
+                                    (True, 'Plus Ultra · −2 HP', discord.ButtonStyle.primary)]:
             button = discord.ui.Button(label=label, style=style, custom_id=f"ua:roll:{guild}:{token}:{int(ultra)}")
             async def pressed(interaction, use_ultra=ultra):
                 if interaction.guild_id != self.guild:
@@ -46,7 +46,7 @@ class RollView(discord.ui.View):
 
     async def on_error(self, interaction, error, item):
         log.error('Roll button failed: %s', type(error).__name__)
-        await self.bot.error(interaction, 'That button could not finish. Use /pending and /resolve.')
+        await self.bot.error(interaction, 'That button could not finish. Use /battle resolve to bring back the buttons.')
 
 
 class HeroForm(discord.ui.Modal):
@@ -56,21 +56,22 @@ class HeroForm(discord.ui.Modal):
         existing = existing or {}
         for key, label, limit, default in [
             ('name','Real name',80,''),('hero_name','Hero name',80,''),('age','Adult age (18 or older)',3,'18'),
-            ('goal','What does your hero want to achieve?',500,''),('cooperation','Why do they cooperate with classmates?',500,'')]:
+            ('goal','Goal (optional)',500,'Become a hero.'),('cooperation','Team connection (optional)',500,'Protect my classmates.')]:
             item = discord.ui.TextInput(label=label, max_length=limit, min_length=1,
                        style=discord.TextStyle.paragraph if limit > 100 else discord.TextStyle.short,
-                       default=str(existing.get(key, default)))
+                       default=str(existing.get(key, default)), required=key in {'name','hero_name'})
             setattr(self, key, item)
             self.add_item(item)
 
     async def on_submit(self, interaction):
         try:
-            age = int(str(self.age))
+            age = int(str(self.age) or '18')
         except ValueError:
             await self.bot.error(interaction, 'Use a whole-number adult age, such as 19.')
             return
         await self.bot.execute_command(interaction, 'hero_edit' if self.editing else 'hero_create', private=True,
-            name=str(self.name), hero_name=str(self.hero_name), age=age, goal=str(self.goal), cooperation=str(self.cooperation))
+            name=str(self.name), hero_name=str(self.hero_name), age=age,
+            goal=str(self.goal) or 'Become a hero.', cooperation=str(self.cooperation) or 'Protect my classmates.')
 
     async def on_error(self, interaction, error):
         log.error('Hero form failed: %s', type(error).__name__)
@@ -118,10 +119,15 @@ class HeroBot(discord.Client):
         groups = {}
         for spec in SPECS:
             segments = spec.path.split()
-            if len(segments) == 2 and segments[0] not in groups:
-                group = app_commands.Group(name=segments[0], description=f"UA Hero College {segments[0]} commands", guild_only=True)
-                groups[segments[0]] = group
-                self.tree.add_command(group)
+            for depth in range(1, len(segments)):
+                key = tuple(segments[:depth])
+                if key not in groups:
+                    group = app_commands.Group(name=segments[depth-1], description=f"{' '.join(segments[:depth]).title()} tools", guild_only=True)
+                    groups[key] = group
+                    if depth == 1:
+                        self.tree.add_command(group)
+                    else:
+                        groups[key[:-1]].add_command(group)
             async def callback(interaction, _spec=spec, **kwargs):
                 await self.run_spec(interaction, _spec, kwargs)
             parameters = [inspect.Parameter('interaction', inspect.Parameter.POSITIONAL_OR_KEYWORD, annotation=discord.Interaction)]
@@ -139,7 +145,7 @@ class HeroBot(discord.Client):
                 command = app_commands.guild_only()(command)
                 self.tree.add_command(command)
             else:
-                groups[segments[0]].add_command(command)
+                groups[tuple(segments[:-1])].add_command(command)
             for option in spec.options:
                 if option.name in {'enemy', 'zone', 'objective'} and not option.choices:
                     command.autocomplete(option.name)(self.autocomplete_for(option.name))
@@ -212,7 +218,7 @@ class HeroBot(discord.Client):
         else:
             log.error('Slash command failed: %s', type(underlying).__name__,
                       exc_info=(type(underlying), underlying, underlying.__traceback__))
-            await self.error(interaction, 'The command could not finish. Check /pending and /battle status before retrying; the GM can correct saved state.')
+            await self.error(interaction, 'The command could not finish. Check /battle resolve and /battle status before retrying; the GM can correct saved state.')
 
     async def run_spec(self, interaction, spec, kwargs):
         try:
@@ -225,21 +231,15 @@ class HeroBot(discord.Client):
                 return
             if spec.special == 'help':
                 await self.acknowledge(interaction, private=True)
+                if kwargs['topic'] == 'handbook':
+                    await self.reply(interaction, content='📖 **Player guide**\n\nYour complete rules and command guide.',
+                        file=discord.File(io.BytesIO(handbook_bytes()),filename='PLAYER_HANDBOOK.md'),ephemeral=True)
+                    return
                 if kwargs['topic'] == 'gm':
                     self.game.execute(acting,'roster')  # Runtime role check; no admin bypass.
-                await self.send_result(interaction,{'title':'Player help','text':help_text(kwargs['topic'])},private=True)
-                return
-            if spec.special == 'rules':
-                await self.acknowledge(interaction, private=True)
-                topic = kwargs['topic']
-                text = (MOVES[topic]['rule'] + f" Cost: {MOVES[topic]['cost']} Energy." if topic in MOVES else ITEMS[topic] if topic in ITEMS else
-                        f"{TALENTS[topic][0]}: Edge on one {TALENTS[topic][1]} roll per scene, declared before rolling." if topic in TALENTS else help_text('quick'))
-                await self.send_result(interaction,{'title':'Game rules','text':text},private=True)
-                return
-            if spec.special == 'guide':
-                await self.acknowledge(interaction, private=True)
-                await self.reply(interaction, content='📖 **Player handbook**\n\nYour complete guide to heroes, Quirks, dice, and battles.',
-                    file=discord.File(io.BytesIO(handbook_bytes()),filename='PLAYER_HANDBOOK.md'),ephemeral=True)
+                role = self.game.store.load(acting.guild_id)['settings']['gm_role_id']
+                is_gm = acting.user_id == self.game.owner_id or role is not None and int(role) in acting.role_ids
+                await self.send_result(interaction,{'title':'Help','text':help_text(kwargs['topic'], gm=is_gm)},private=True)
                 return
             if spec.special == 'panel':
                 await self.acknowledge(interaction)
@@ -268,7 +268,7 @@ class HeroBot(discord.Client):
             await self.error(interaction,str(exc))
             return False
         presentation = dict(result)
-        presentation.setdefault('title', operation_name.replace('_', ' ').capitalize())
+        presentation.setdefault('title', 'Done')
         presentation.setdefault('icon', {'session':'📅', 'mission':'📍', 'spar':'🥊', 'battle':'⚔️',
                                        'enemy':'🦹', 'objective':'🎯'}.get(operation_name.split('_')[0], '✅'))
         await self.send_result(interaction,presentation,private=private)
@@ -328,7 +328,7 @@ class HeroBot(discord.Client):
                 # Clear embeds on panels created by older releases during migration.
                 await message.edit(content=battle_panel(result),embeds=[],allowed_mentions=discord.AllowedMentions.none())
             except discord.HTTPException as exc:
-                log.warning('Live panel unavailable: %s. GM can post /battle panel again.',type(exc).__name__)
+                log.warning('Live panel unavailable: %s. GM can post /gm battle panel again.',type(exc).__name__)
 
     async def close(self):
         await super().close()

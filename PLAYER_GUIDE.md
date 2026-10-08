@@ -1,94 +1,83 @@
-# Your first session with the UA Hero College bot
+# UA Hero College: quick player guide
 
-You describe what your student wants to do. The GM decides what is possible and what is risky. The bot rolls dice and remembers the numbers for you.
+Say what your hero tries. The GM tells you when to roll. The bot remembers your stats, resources, and battle effects.
 
-## Make your student
+## Make a character
 
-Use the slash menu inside the game server. The examples below show command names and option values; Discord lets you fill in the options separately.
+1. **`/hero roll`** randomly assigns d10, d8, d8, and d6 to Power, Speed, Wits, and Heart. It saves your result; repeating the command shows it again.
+2. **`/hero create`** opens a short form. Enter your real name and hero name. Age defaults to 18; the goal and team connection are optional. Saved starting stats apply automatically.
+3. **`/hero quirk name:Ice reach:ranged`** opens your power card: one ability, ordinary uses, what it cannot do, and clear limits. Touch reaches your zone; an agreed ranged ability also reaches a clear connected zone.
+4. **`/hero submit`** sends the full card for GM approval.
 
-1. **`/hero create`** opens a form for your real name, hero name, adult age, goal, and reason to work with classmates.
-2. **`/hero stats`** assigns **d10, d8, d8, d6**, once each, among Power, Speed, Wits, and Heart. For example: `power:10 speed:8 wits:6 heart:8`.
-3. **`/hero quirk name:Cold Sculptor reach:ranged`** opens a power form. Write one clear power, 2–4 ordinary uses, things it cannot do, and 1–2 clear limits. Touch reaches your zone; a suitable ranged Quirk also reaches one connected zone. The GM approves what your power can actually do.
-4. **`/hero moves`** selects two starting signature move templates. You can give each a personal name. Try `first:shield second:rescue_boost` for an ice rescuer.
-5. **`/hero talent`** chooses one Talent. It gives Edge on one fitting roll per scene, if declared before rolling.
-6. **`/hero gear`** records ordinary costume features and equipment. You start with no special support item.
-7. **`/hero submit`** posts your finished card for GM approval. Use **`/hero sheet`** any time to see your sheet; `share:true` posts it publicly.
+You start with **6 Health, 3 Energy, two moves, and one Talent**. No extra resource rolls are needed. Defaults are Heavy Hit, Rescue Boost, and Strong Spirit. If you want different choices, use **`/hero build`** before submitting. For example: `first:shield second:rescue_boost talent:sharp_thinker`.
 
-You start with **6 Health and 3 Energy**. You do not need to enter or remember those yourself. Changing your Quirk reopens its approval, so discuss changes with the GM between missions.
+You can run `/hero roll` after creating an unfinished draft too. It assigns starting stats once; it cannot reset an established hero. You may arrange the same balanced dice yourself with `/hero stats`. `/hero sheet` shows your short card; `details:true` shows every rule and note. `share:true` posts it publicly.
 
-## Roll and choose
+## Roll a check
 
-The GM names a fitting stat and tells you the risk. Use `/check stat:wits method:Look for the emergency controls` outside combat. The bot shows the roll and waits:
+Use **`/check stat:wits`** when the GM asks for Wits outside a battle. Say your method in chat, or add `method:Look for the emergency controls`.
 
-| Kept result | Meaning |
+| Result | Meaning |
 |---|---|
-| 1–3 | Miss or setback; the GM applies the stated risk |
+| 1–3 | Miss or setback |
 | 4–7 | Success |
-| 8 or more | Big success with an extra benefit |
+| 8+ | Big success |
 
-Press **Accept result**, or **Plus Ultra**. Plus Ultra changes your result to 8, then costs 2 Health. You get one Plus Ultra per official session. Only you can spend it; the GM can accept a result for an absent player. `/resolve` and `/resolve plus_ultra:true` do the same as the buttons.
+Press **Keep**, or **Plus Ultra · −2 HP**. Plus Ultra makes the result 8 and costs 2 Health after the effect. You get one use per official session. `/battle resolve` brings back waiting buttons; `choice:keep` accepts the result and `choice:plus` spends Plus Ultra. Only the rolling player can spend it; the GM may keep an absent player's result.
 
-Use `talent:true` or `prep:true` **before rolling** to spend an appropriate Talent or Prep. Use `edge:true` only for an advantage the GM agreed to, and `pressure:true` for an announced complication. Edge rolls twice and keeps higher; Pressure keeps lower. Extra sources never stack, and any Edge plus any Pressure cancel to one die.
+**Edge** rolls twice and keeps higher. **Pressure** keeps lower. Both together cancel to one die; extra sources never stack. Add `talent:true` or `prep:true` before rolling to spend an appropriate Talent or Prep. Use other Edge/Pressure only as agreed with the GM.
 
-The server handles one waiting game roll at a time. While someone chooses, use `/pending`, `/hero sheet`, or `/battle status`. Gameplay changes resume when that roll is resolved.
-
-For any raw dice, use `/roll`; it defaults to 1d20. `/roll dice:1d20 bonus:3` adds 3 points. You can also use `/roll dice:2d17+1d8-3`, `dice:2d10 keep:high`, or `dice:2d10 keep:low`. Bonuses and expression modifiers are added after choosing the kept die.
-
-Custom faces work in the same command: `/roll dice:1d[custom] faces:[0,1,1,5]` or `faces:["sun","rain","rain","storm"]`. Repeated faces add weight. These faces apply only to the current roll. Text dice have no numeric total and cannot use bonuses, modifiers, subtraction, or keep-high/low. Raw rolls do not spend Energy or offer Plus Ultra. Use `/check` and battle actions for tracked game effects.
+One tracked roll can wait per server. Finish its decision before changing gameplay. You can still read sheets, battle status, help, and FAQs.
 
 ## Take a battle turn
 
-Your team chooses who acts first. Each hero acts once in the heroes phase.
+Your team chooses an order. **Your first move or action starts your turn automatically.** Each hero gets one free move and one action per round.
 
-1. **`/battle turn`** starts your turn.
-2. Move one clear connected zone for free with **`/battle move zone:lobby`**, before or after your action.
-3. Take **one action**. Here are the common choices:
-
-| Goal | Command |
+| What you want | Command |
 |---|---|
-| Attack a foe | `/battle attack targets:e1 stat:power method:Strike with an ice fist` |
-| Help a teammate's next attack | `/battle help user:@Ally task:attack method:Pin down their opponent` |
-| Guard yourself or a nearby ally | `/battle guard` or `/battle guard user:@Ally` |
-| Work on a rescue objective | `/battle task objective:evacuate stat:heart method:Guide the civilians rescue:true` |
+| Move one clear connection | `/battle move zone:lobby` |
+| Attack | `/battle attack targets:e1` |
+| Help an ally's next attack | `/hero help user:@Ally` |
+| Guard yourself or a person in your zone | `/battle guard` or `user:@Ally` |
+| Work on an objective | `/battle task objective:evacuate` |
 | Restore 1 Energy | `/battle recover` |
-| Use an agreed action needing no roll | `/battle automatic method:Open the unlocked exit` |
+| Take an agreed action without a roll | `/battle automatic` |
+| Finish or pass your turn | `/battle end` |
 
-4. Resolve any rolled result, then **`/battle end`**. You can end early and leave movement or your action unused.
+Default roll stats are Power for attacks, Wits for tasks, and Speed for defenses. Choose another `stat` when agreed with the GM. Say your approach in chat, or fill in `method`. Finish waiting rolls before ending the turn.
 
-An ordinary attack deals 2 damage on a success or 3 on a big success. Help gives Edge and adds 1 damage to one helped hit, ignoring its Armor. Guard reduces one incoming attack by 2. The bot calculates those effects.
+Ordinary attacks deal 2 damage on a success, 3 on a big success. Help gives Edge; one helped hit gains 1 damage and ignores Armor. Guard reduces one attack by 2. The bot calculates these effects.
 
-To use a prepared signature, select its option: for example `/battle attack ... move:heavy_hit`, `/battle capture ...`, `/battle task ... boost:true`, `/battle shield`, or `/battle move ... mode:rapid`. **Pay Energy even on a miss, and use at most one signature per turn.** Rapid Move replaces your free movement and leaves an ordinary action. `/rules` explains every move card.
+For signature moves, use the matching option:
 
-Mend uses `/mend user:@Ally`, costs 2 Energy, and heals in your zone. A special item uses `/item`, except Grapple Line and Rescue Harness, which are options on `/battle move`. The bot checks prepared choices and use limits.
+- Heavy Hit, Burst, Long Reach, or Capture: `/battle attack move:...`.
+- Shield: `/battle guard kind:shield`.
+- Rescue Boost: `/battle task boost:true`.
+- Rapid Move: `/battle move mode:rapid`.
+- Mend: `/hero heal user:@Ally`.
 
-## When danger hits you
+Use only your prepared moves. Pay Energy even on a miss; use **at most one signature per turn**. `/help topic:moves` explains the cards. `/hero item` uses Smoke, Scanner, or Medical Patch; Grapple Line and Rescue Harness are movement options.
 
-The GM announces an attack. If damage remains after protection, use **`/battle defend stat:speed method:Duck behind the cover`**, choosing the stat agreed with the GM. Accept or use Plus Ultra as usual. A 4+ avoids the attack; an 8+ also earns a free move to one clear connected zone.
+## Defend and recover
 
-You may preselect that destination with `bonus_zone:lobby`. Otherwise, after everyone finishes their defense, use **`/battle bonus zone:lobby`** or choose `zone:stay`. Group attacks finish all defenses before bonus moves happen. Defense and bonus movement choices must finish before play continues. Protection that reduces damage to zero needs no defense roll and gives no bonus move.
+When the GM announces an attack, use **`/battle defend`** if damage remains. Keep or use Plus Ultra. A 4+ avoids it; an 8+ also earns a connected-zone move. Use `/battle bonus zone:lobby` or `zone:stay` if the bot asks for your destination. Group attacks finish everyone's defense before bonus movement.
 
-At **0 Health you are Down**. You can end your turn or give one useful cheer through `/battle help`, once per fight. Mend can revive you. Defeat does not automatically kill your character. Safe recovery is confirmed by the GM, not by rolling repeatedly.
+At **0 Health you are Down**. You can end your turn or cheer with `/hero help` once per fight. Mend can revive you. The GM confirms safe rest; it restores Health and Energy without a roll.
 
-## Grow your hero
+## Grow and organize your hero
 
-- Meaningful participation in an official main or side session earns **1 Training**, up to **2 per server week**. The GM marks participation; winning fights or spamming rolls gives no extra Training.
-- Side sessions also earn themed **Prep** for the next main mission. Spend it on one fitting roll for Edge. Hold one Prep; `/hero prep replace:true` takes a new offer, while `replace:false` keeps your old one. Unused Prep for a mission expires when it ends.
-- With 3 Training, **`/hero unlock kind:move option:capture`** requests a new option. The GM approves it and the bot spends the Training. Other kinds are `talent` and `item`.
-- Between missions, **`/hero prepare`** selects two learned moves, one learned Talent, and at most one learned item. Mission loadouts are locked during the mission. Switching choices does not refresh already-spent scene uses.
-- When the class earns a shared milestone, **`/hero upgrade stat:speed`** raises that die one step: d6 → d8 → d10 → d12. New and returning heroes receive the same shared increases.
-- **`/hero tracker name:Dorm project value:2/4`** saves your personal notes or custom counters on your sheet. Those notes do not silently change the core game rules.
-- **`/spar start opponent:@Ally`** invites a friendly contest. They `/spar join`; both `/spar roll`. First to two wins takes it, ties reroll without new costs, and everyone gets the same participation rewards when the GM runs it as an official session.
+Meaningful participation in a main or side session earns **1 Training**, up to **2 per server week**. Side sessions also give themed **Prep** for one fitting roll next main mission. Winning or repeatedly rolling gives no extra rewards.
 
-Use **`/help`** for short tutorials, **`/rules`** for cards, **`/faq`** for common questions, and **`/guide`** for the full player handbook. Start by saying your goal; the commands follow the decision.
+With 3 Training, `/hero unlock` requests a new move, Talent, or item. The GM approves it. Between missions, `/hero build` chooses your two learned moves, one Talent, and one learned item. Omitted fields keep their choices; `item:none` removes the item. Swapping never refreshes a spent use.
 
-## Ask the FAQ
+`/hero upgrade` uses a shared class milestone. `/hero prep` chooses a new offered Prep. `/hero notes name:Dorm project value:2/4` saves a note; leave `value` empty to delete it. Notes do not change core stats.
 
-Try **`/faq question:energy`**, **`/faq question:How do I make a Quirk?`**, or **`/faq category:combat`**. Typing a question suggests matching answers; choosing one reads it. `/faq` alone shows the categories. Answers are private by default; `share:true` posts one in the channel.
+`/spar start opponent:@Ally` invites a friendly best-of-three contest. They `/spar join`; both `/spar roll`. Ties reroll without new costs. There is no Health damage or Plus Ultra.
 
-You can ask before creating a hero and while another player's roll waits. The GM can add campaign answers about session times, house rules, or the university setting, so `/faq category:campaign` is useful too. The FAQ looks up written answers; if no answer matches, ask your GM.
+## Extra dice and questions
 
-## Personal notes and custom dice
+**`/roll`** defaults to 1d20. `dice:2d17+1d8-3` uses a custom expression; `bonus:3` adds 3 once to the total. `keep:high` or `keep:low` chooses one die from a single numeric pool before modifiers.
 
-`/hero tracker name:Dorm project value:2/4` saves a note or manual counter on your sheet. To delete it, use `/hero tracker name:Dorm project` and leave the value blank. Core Health, Energy, and stat dice are tracked by the game commands.
+Custom faces work with `dice:1d[custom] faces:[0,1,1,5]` or `faces:["sun","rain","rain","storm"]`. Repeats add weight. Any text faces mean no numeric total, bonus, subtraction, or keep-high/low. Raw dice do not spend resources or apply tracked battle effects.
 
-A custom die can contain numbers or text labels, including a mixture. A die with any text face cannot use keep-high/low, subtraction, or numeric modifiers, even if it happens to roll a number. Ordinary positive text pools are allowed; text results have no total.
+**`/faq question:energy`** searches answers; `/faq` browses topics. Answers are private unless `share:true` is selected. **`/help`** gives short steps; **`/help topic:handbook`** downloads all the player rules.

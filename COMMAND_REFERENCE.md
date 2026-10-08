@@ -1,10 +1,10 @@
 # Public slash-command reference
 
-The bot provides 85 slash commands. Use them inside your game server. Discord presents arguments as selectable fields; the examples in the guides show their names and values.
+The bot provides 74 slash commands in 8 main menus. Start with /help; you only need a few commands for everyday play. Use them inside your game server. Discord presents arguments as selectable fields.
 
 Commands described as GM require the creator or configured GM role. `/gm config` requires the creator. Errors and personal sheets/help are private where appropriate; battle actions and official changes are public.
 
-The bot handles one waiting tracked roll per server. While it waits, `/resolve`, `/pending`, `/faq`, sheet/status/list commands, and permitted GM recovery tools are available.
+The bot handles one waiting tracked roll per server. While it waits, use its Keep / Plus Ultra buttons, `/battle resolve`, `/faq`, sheet/status commands, or permitted GM recovery tools.
 
 ## /help
 
@@ -14,7 +14,7 @@ Learn the game and find the bot commands.
 
 | Argument | Required/default | Type or choices | Meaning |
 |---|---|---|---|
-| `topic` | Default: `quick` | `quick`, `create`, `quirks`, `rolls`, `battle`, `training`, `spar`, `gm`, `commands` | Topic |
+| `topic` | Default: `quick` | `quick`, `create`, `quirks`, `rolls`, `battle`, `training`, `spar`, `moves`, `talents`, `items`, `handbook`, `gm`, `commands` | Topic |
 
 Response is private by default.
 
@@ -32,78 +32,9 @@ Browse or search common questions and campaign answers.
 
 Response is private by default.
 
-## /rules
+## /hero
 
-### /rules
-
-Read move, Talent, item, or core rules.
-
-| Argument | Required/default | Type or choices | Meaning |
-|---|---|---|---|
-| `topic` | Default: `core` | `core`, `heavy_hit`, `burst`, `rescue_boost`, `shield`, `capture`, `rapid_move`, `long_reach`, `mend`, `heavy_hitter`, `quick_feet`, `sharp_thinker`, `strong_spirit`, `rescue_specialist`, `quirk_specialist`, `grapple_line`, `smoke_capsule`, `rescue_harness`, `field_scanner`, `medical_patch` | Topic |
-
-Response is private by default.
-
-## /guide
-
-### /guide
-
-Download the complete player handbook.
-
-No arguments.
-
-Response is private by default.
-
-## /resolve
-
-### /resolve
-
-Accept your waiting roll or choose Plus Ultra.
-
-| Argument | Required/default | Type or choices | Meaning |
-|---|---|---|---|
-| `plus_ultra` | Default: `false` | true/false | Set true to use Plus Ultra after seeing the roll |
-
-## /pending
-
-### /pending
-
-Show the waiting roll and its decision buttons.
-
-No arguments.
-
-## /check
-
-### /check
-
-Roll your tracked stat outside a battle.
-
-| Argument | Required/default | Type or choices | Meaning |
-|---|---|---|---|
-| `stat` | Required | `power`, `speed`, `wits`, `heart` | Stat agreed with the GM before rolling |
-| `method` | Required | text | Your goal and how your hero attempts it |
-| `task` | Default: `check` | `check`, `rescue`, `investigation`, `escape`, `hide` | Task |
-| `edge` | Default: `false` | true/false | GM-approved Edge; extra sources never stack |
-| `pressure` | Default: `false` | true/false | GM-announced Pressure |
-| `talent` | Default: `false` | true/false | Spend your qualifying Talent before rolling |
-| `prep` | Default: `false` | true/false | Spend a fitting Prep for this main mission before rolling |
-| `rescue` | Default: `false` | true/false | This directly saves or protects someone |
-
-## /help-ally
-
-### /help-ally
-
-Help an ally on a named check outside combat.
-
-| Argument | Required/default | Type or choices | Meaning |
-|---|---|---|---|
-| `user` | Required | player | Choose a player |
-| `task` | Required | `check`, `rescue`, `investigation`, `escape`, `hide` | Task |
-| `method` | Required | text | Your goal and how your hero attempts it |
-
-## /mend
-
-### /mend
+### /hero heal
 
 Use prepared Mend, in combat or outside it.
 
@@ -111,9 +42,7 @@ Use prepared Mend, in combat or outside it.
 |---|---|---|---|
 | `user` | Required | player | Choose a player |
 
-## /item
-
-### /item
+### /hero item
 
 Use your prepared Smoke, Scanner, or Medical Patch.
 
@@ -121,8 +50,6 @@ Use your prepared Smoke, Scanner, or Medical Patch.
 |---|---|---|---|
 | `user` | Optional; empty | player | Choose a player |
 | `question` | Optional; empty | text | Field Scanner question for the GM |
-
-## /hero
 
 ### /hero create
 
@@ -133,6 +60,36 @@ No arguments.
 Opens a guided form; submit that form to save.
 
 Response is private by default.
+
+### /hero roll
+
+Roll and save all four starting stats in one command.
+
+No arguments.
+
+### /hero build
+
+Choose two moves, a Talent, and a learned item.
+
+| Argument | Required/default | Type or choices | Meaning |
+|---|---|---|---|
+| `first` | Optional; empty | `heavy_hit`, `burst`, `rescue_boost`, `shield`, `capture`, `rapid_move`, `long_reach`, `mend` | First |
+| `second` | Optional; empty | `heavy_hit`, `burst`, `rescue_boost`, `shield`, `capture`, `rapid_move`, `long_reach`, `mend` | Second |
+| `talent` | Optional; empty | `heavy_hitter`, `quick_feet`, `sharp_thinker`, `strong_spirit`, `rescue_specialist`, `quirk_specialist` | Talent |
+| `item` | Optional; empty | `none`, `grapple_line`, `smoke_capsule`, `rescue_harness`, `field_scanner`, `medical_patch` | Item |
+
+Response is private by default.
+
+### /hero help
+
+Help an ally, during a battle or outside it.
+
+| Argument | Required/default | Type or choices | Meaning |
+|---|---|---|---|
+| `user` | Required | player | Choose a player |
+| `method` | Default: `Agreed action.` | text | Your goal and how your hero attempts it |
+| `task` | Optional; empty | `check`, `task`, `attack`, `defense`, `capture`, `rescue`, `investigation`, `escape`, `hide` | Task |
+| `objective` | Optional; empty | text | Objective |
 
 ### /hero edit
 
@@ -170,39 +127,6 @@ Opens a guided form; submit that form to save.
 
 Response is private by default.
 
-### /hero moves
-
-Choose and name two starting signature moves.
-
-| Argument | Required/default | Type or choices | Meaning |
-|---|---|---|---|
-| `first` | Required | `heavy_hit`, `burst`, `rescue_boost`, `shield`, `capture`, `rapid_move`, `long_reach`, `mend` | First |
-| `second` | Required | `heavy_hit`, `burst`, `rescue_boost`, `shield`, `capture`, `rapid_move`, `long_reach`, `mend` | Second |
-| `first_name` | Optional; empty | text | First name |
-| `second_name` | Optional; empty | text | Second name |
-
-Response is private by default.
-
-### /hero talent
-
-Choose your starting Talent.
-
-| Argument | Required/default | Type or choices | Meaning |
-|---|---|---|---|
-| `talent` | Required | `heavy_hitter`, `quick_feet`, `sharp_thinker`, `strong_spirit`, `rescue_specialist`, `quirk_specialist` | Talent |
-
-Response is private by default.
-
-### /hero gear
-
-Record ordinary costume features and equipment.
-
-| Argument | Required/default | Type or choices | Meaning |
-|---|---|---|---|
-| `gear` | Required | text | Gear |
-
-Response is private by default.
-
 ### /hero submit
 
 Send your finished character card for GM approval.
@@ -217,6 +141,7 @@ View your current character, stats, and resources.
 |---|---|---|---|
 | `user` | Optional; empty | player | Choose a player |
 | `share` | Default: `false` | true/false | Post the sheet publicly instead of privately |
+| `details` | Default: `false` | true/false | Show the complete sheet instead of the short card |
 
 Response is private by default.
 
@@ -235,20 +160,9 @@ Request a new move, Talent, or item for 3 Training.
 | Argument | Required/default | Type or choices | Meaning |
 |---|---|---|---|
 | `kind` | Required | `move`, `talent`, `item` | Kind |
-| `option` | Required | text | Option ID from /rules or /help topic:training |
+| `option` | Required | text | Option ID from /help topic:moves, talents, or items |
 
-### /hero prepare
-
-Prepare two learned moves, a Talent, and one item for a mission.
-
-| Argument | Required/default | Type or choices | Meaning |
-|---|---|---|---|
-| `first` | Required | `heavy_hit`, `burst`, `rescue_boost`, `shield`, `capture`, `rapid_move`, `long_reach`, `mend` | First |
-| `second` | Required | `heavy_hit`, `burst`, `rescue_boost`, `shield`, `capture`, `rapid_move`, `long_reach`, `mend` | Second |
-| `talent` | Required | `heavy_hitter`, `quick_feet`, `sharp_thinker`, `strong_spirit`, `rescue_specialist`, `quirk_specialist` | Talent |
-| `item` | Default: `none` | `none`, `grapple_line`, `smoke_capsule`, `rescue_harness`, `field_scanner`, `medical_patch` | Item |
-
-### /hero tracker
+### /hero notes
 
 Save a custom tracker, or leave its value blank to delete it.
 
@@ -280,39 +194,36 @@ Roll any dice and optionally add bonus points.
 | `keep` | Default: `all` | `all`, `high`, `low` | Keep |
 | `faces` | Optional; empty | text | Optional JSON faces for d[custom]: [0,1,1,5] or ["sun","rain"] |
 
-## /battle
+## /check
 
-### /battle create
+### /check
 
-GM: create a battle or rescue challenge.
+Roll your tracked stat outside a battle.
 
 | Argument | Required/default | Type or choices | Meaning |
 |---|---|---|---|
-| `name` | Required | text | Name |
-| `participants` | Required | text | Hero mentions or user IDs, separated by commas |
-| `starting_zone` | Default: `start` | text | Starting zone |
+| `stat` | Required | `power`, `speed`, `wits`, `heart` | Stat agreed with the GM before rolling |
+| `method` | Default: `Agreed action.` | text | Your goal and how your hero attempts it |
+| `task` | Default: `check` | `check`, `rescue`, `investigation`, `escape`, `hide` | Task |
+| `edge` | Default: `false` | true/false | GM-approved Edge; extra sources never stack |
+| `pressure` | Default: `false` | true/false | GM-announced Pressure |
+| `talent` | Default: `false` | true/false | Spend your qualifying Talent before rolling |
+| `prep` | Default: `false` | true/false | Spend a fitting Prep for this main mission before rolling |
+| `rescue` | Default: `false` | true/false | This directly saves or protects someone |
 
-### /battle start
+## /battle
 
-GM: begin round 1 after announcing enemy intentions.
+### /battle resolve
 
-No arguments.
+Show a waiting roll, keep it, or choose Plus Ultra.
+
+| Argument | Required/default | Type or choices | Meaning |
+|---|---|---|---|
+| `choice` | Default: `show` | `show`, `keep`, `plus` | Choice |
 
 ### /battle status
 
 Read current zones, turns, Health, enemies, and objectives.
-
-No arguments.
-
-### /battle panel
-
-GM: post a live battle panel that updates after commands.
-
-No arguments.
-
-### /battle turn
-
-Begin your turn after the team chooses its order.
 
 No arguments.
 
@@ -342,30 +253,14 @@ Move, Rush, or use Rapid Move on a permitted route.
 
 ### /battle attack
 
-Attack with a basic strike, Heavy Hit, Burst, or Long Reach.
+Attack with a basic strike, your prepared move.
 
 | Argument | Required/default | Type or choices | Meaning |
 |---|---|---|---|
 | `targets` | Required | text | Enemy IDs: e1, or e1,e2,e3 for Burst |
-| `stat` | Required | `power`, `speed`, `wits`, `heart` | Stat agreed with the GM before rolling |
-| `method` | Required | text | Your goal and how your hero attempts it |
-| `move` | Default: `basic` | `basic`, `heavy_hit`, `burst`, `long_reach` | Move |
-| `edge` | Default: `false` | true/false | GM-approved Edge; extra sources never stack |
-| `pressure` | Default: `false` | true/false | GM-announced Pressure |
-| `talent` | Default: `false` | true/false | Spend your qualifying Talent before rolling |
-| `prep` | Default: `false` | true/false | Spend a fitting Prep for this main mission before rolling |
-| `assisted_target` | Optional; empty | text | Burst Help damage target; defaults to first named target |
-| `visible` | Default: `true` | true/false | A clear line of sight is required |
-
-### /battle capture
-
-Use Capture to restrain or interrupt one enemy.
-
-| Argument | Required/default | Type or choices | Meaning |
-|---|---|---|---|
-| `enemy` | Required | text | Enemy |
-| `stat` | Required | `power`, `speed`, `wits`, `heart` | Stat agreed with the GM before rolling |
-| `method` | Required | text | Your goal and how your hero attempts it |
+| `stat` | Default: `power` | `power`, `speed`, `wits`, `heart` | Stat agreed with the GM before rolling |
+| `method` | Default: `Agreed action.` | text | Your goal and how your hero attempts it |
+| `move` | Default: `basic` | `basic`, `heavy_hit`, `burst`, `long_reach`, `capture` | Move |
 | `edge` | Default: `false` | true/false | GM-approved Edge; extra sources never stack |
 | `pressure` | Default: `false` | true/false | GM-announced Pressure |
 | `talent` | Default: `false` | true/false | Spend your qualifying Talent before rolling |
@@ -377,8 +272,8 @@ Work on an objective or another risky task.
 
 | Argument | Required/default | Type or choices | Meaning |
 |---|---|---|---|
-| `stat` | Required | `power`, `speed`, `wits`, `heart` | Stat agreed with the GM before rolling |
-| `method` | Required | text | Your goal and how your hero attempts it |
+| `stat` | Default: `wits` | `power`, `speed`, `wits`, `heart` | Stat agreed with the GM before rolling |
+| `method` | Default: `Agreed action.` | text | Your goal and how your hero attempts it |
 | `objective` | Optional; empty | text | Objective |
 | `boost` | Default: `false` | true/false | Use prepared Rescue Boost for 1 Energy |
 | `edge` | Default: `false` | true/false | GM-approved Edge; extra sources never stack |
@@ -394,35 +289,17 @@ Spend an ordinary action on an agreed task needing no roll.
 
 | Argument | Required/default | Type or choices | Meaning |
 |---|---|---|---|
-| `method` | Required | text | Your goal and how your hero attempts it |
-
-### /battle help
-
-Help a named ally and task, or cheer while Down.
-
-| Argument | Required/default | Type or choices | Meaning |
-|---|---|---|---|
-| `user` | Required | player | Choose a player |
-| `task` | Required | `task`, `attack`, `defense`, `capture`, `rescue`, `investigation`, `escape`, `hide` | Task |
-| `method` | Required | text | Your goal and how your hero attempts it |
-| `objective` | Optional; empty | text | Objective |
+| `method` | Default: `Agreed action.` | text | Your goal and how your hero attempts it |
 
 ### /battle guard
 
-Guard yourself or one ally in your zone.
+Guard one person or use your prepared Shield.
 
 | Argument | Required/default | Type or choices | Meaning |
 |---|---|---|---|
 | `user` | Optional; empty | player | Choose a player |
+| `kind` | Default: `guard` | `guard`, `shield` | Kind |
 | `method` | Default: `Protect them from the announced attack.` | text | Method |
-
-### /battle shield
-
-Use Shield to prepare protection against one attack.
-
-| Argument | Required/default | Type or choices | Meaning |
-|---|---|---|---|
-| `method` | Default: `Prepare a barrier in my zone.` | text | Method |
 
 ### /battle recover
 
@@ -436,8 +313,8 @@ Roll defense against the incoming attack.
 
 | Argument | Required/default | Type or choices | Meaning |
 |---|---|---|---|
-| `stat` | Required | `power`, `speed`, `wits`, `heart` | Stat agreed with the GM before rolling |
-| `method` | Required | text | Your goal and how your hero attempts it |
+| `stat` | Default: `speed` | `power`, `speed`, `wits`, `heart` | Stat agreed with the GM before rolling |
+| `method` | Default: `Agreed action.` | text | Your goal and how your hero attempts it |
 | `user` | Optional; empty | player | Choose a player |
 | `edge` | Default: `false` | true/false | GM-approved Edge; extra sources never stack |
 | `pressure` | Default: `false` | true/false | GM-announced Pressure |
@@ -453,192 +330,6 @@ Choose your earned big defense move, or stay.
 |---|---|---|---|
 | `zone` | Default: `stay` | text | Zone |
 | `user` | Optional; empty | player | Choose a player |
-
-### /battle finish
-
-GM: finish a fight or challenge and record its outcome.
-
-| Argument | Required/default | Type or choices | Meaning |
-|---|---|---|---|
-| `outcome` | Required | text | Outcome |
-
-## /enemy
-
-### /enemy add
-
-GM: create a Minion, Rival, Elite, or Boss.
-
-| Argument | Required/default | Type or choices | Meaning |
-|---|---|---|---|
-| `name` | Required | text | Name |
-| `template` | Required | `minion`, `rival`, `elite`, `boss` | Template |
-| `zone` | Required | text | Zone |
-| `trait` | Default: `none` | `none`, `armor`, `protector`, `wide`, `fast` | Trait |
-| `reach` | Default: `touch` | `touch`, `ranged`, `scene` | Reach |
-
-### /enemy edit
-
-GM: set enemy Health, damage, or action count.
-
-| Argument | Required/default | Type or choices | Meaning |
-|---|---|---|---|
-| `enemy` | Required | text | Enemy |
-| `health` | Optional; empty | integer | Health |
-| `damage` | Optional; empty | integer | Damage |
-| `actions` | Optional; empty | integer | Actions |
-
-### /enemy trait
-
-GM: enable or remove a trait or exposed Armor.
-
-| Argument | Required/default | Type or choices | Meaning |
-|---|---|---|---|
-| `enemy` | Required | text | Enemy |
-| `trait` | Required | `armor`, `protector`, `wide`, `fast` | Trait |
-| `enabled` | Default: `true` | true/false | Enabled |
-
-### /enemy intent
-
-GM: announce the enemy’s reliable intention.
-
-| Argument | Required/default | Type or choices | Meaning |
-|---|---|---|---|
-| `enemy` | Required | text | Enemy |
-| `intention` | Required | text | Intention |
-
-### /enemy move
-
-GM: resolve permitted enemy movement.
-
-| Argument | Required/default | Type or choices | Meaning |
-|---|---|---|---|
-| `enemy` | Required | text | Enemy |
-| `zone` | Required | text | Zone |
-
-### /enemy attack
-
-GM: spend an enemy action and request player defenses.
-
-| Argument | Required/default | Type or choices | Meaning |
-|---|---|---|---|
-| `enemy` | Required | text | Enemy |
-| `targets` | Required | text | Active hero IDs or mentions, separated by commas |
-| `description` | Required | text | Announced attack and fictional effect |
-| `damage` | Optional; empty | integer | Announced damage override; default uses the enemy card |
-
-### /enemy action
-
-GM: resolve or skip an enemy action, including objectives.
-
-| Argument | Required/default | Type or choices | Meaning |
-|---|---|---|---|
-| `enemy` | Required | text | Enemy |
-| `description` | Required | text | Description |
-| `objective` | Optional; empty | text | Objective |
-| `amount` | Default: `1` | integer | Amount |
-
-## /objective
-
-### /objective add
-
-GM: create a public progress objective and its prerequisites.
-
-| Argument | Required/default | Type or choices | Meaning |
-|---|---|---|---|
-| `key` | Required | text | Key |
-| `name` | Required | text | Name |
-| `goal` | Default: `4` | integer | Goal |
-| `zone` | Optional; empty | text | Zone |
-| `prerequisites` | Optional; empty | text | Existing objective IDs, separated by commas |
-
-### /objective tick
-
-GM: correct or advance objective progress.
-
-| Argument | Required/default | Type or choices | Meaning |
-|---|---|---|---|
-| `key` | Required | text | Key |
-| `amount` | Required | integer | Amount |
-| `reason` | Required | text | Reason |
-
-### /objective danger
-
-GM: announce a Danger track and its consequence.
-
-| Argument | Required/default | Type or choices | Meaning |
-|---|---|---|---|
-| `name` | Required | text | Name |
-| `consequence` | Required | text | Consequence |
-| `goal` | Default: `3` | integer | Goal |
-
-### /objective stop-danger
-
-GM: stop the announced cause of danger.
-
-| Argument | Required/default | Type or choices | Meaning |
-|---|---|---|---|
-| `reason` | Required | text | Reason |
-
-## /session
-
-### /session start
-
-GM: start one official main or side session.
-
-| Argument | Required/default | Type or choices | Meaning |
-|---|---|---|---|
-| `name` | Required | text | Name |
-| `side` | Default: `false` | true/false | Side |
-| `prep_theme` | Optional; empty | text | Required theme for an official side session |
-
-### /session mark
-
-GM: mark or remove a player’s meaningful participation.
-
-| Argument | Required/default | Type or choices | Meaning |
-|---|---|---|---|
-| `user` | Required | player | Choose a player |
-| `participated` | Default: `true` | true/false | Participated |
-
-### /session end
-
-GM: record the session and award capped Training and Prep.
-
-| Argument | Required/default | Type or choices | Meaning |
-|---|---|---|---|
-| `summary` | Required | text | Summary |
-
-### /session log
-
-Read the latest session records.
-
-No arguments.
-
-## /mission
-
-### /mission start
-
-GM: lock prepared choices and assign held Prep to a main mission.
-
-| Argument | Required/default | Type or choices | Meaning |
-|---|---|---|---|
-| `name` | Required | text | Name |
-
-### /mission end
-
-GM: finish a mission and expire its unused Prep.
-
-No arguments.
-
-## /scene
-
-### /scene new
-
-GM: begin a new meaningful scene and refresh Talents and items.
-
-| Argument | Required/default | Type or choices | Meaning |
-|---|---|---|---|
-| `name` | Required | text | Name |
 
 ## /spar
 
@@ -663,7 +354,7 @@ Roll one spar exchange; ties reroll without new costs.
 | Argument | Required/default | Type or choices | Meaning |
 |---|---|---|---|
 | `stat` | Required | `power`, `speed`, `wits`, `heart` | Stat agreed with the GM before rolling |
-| `method` | Required | text | Your goal and how your hero attempts it |
+| `method` | Default: `Agreed action.` | text | Your goal and how your hero attempts it |
 | `enhanced` | Default: `false` | true/false | Spend 1 Energy for Edge through a fitting Quirk approach |
 | `edge` | Default: `false` | true/false | GM-approved Edge; extra sources never stack |
 | `pressure` | Default: `false` | true/false | GM-announced Pressure |
@@ -683,6 +374,190 @@ Cancel your spar; previous costs remain spent.
 No arguments.
 
 ## /gm
+
+### /gm battle create
+
+GM: create a battle or rescue challenge.
+
+| Argument | Required/default | Type or choices | Meaning |
+|---|---|---|---|
+| `name` | Required | text | Name |
+| `participants` | Required | text | Hero mentions or user IDs, separated by commas |
+| `starting_zone` | Default: `start` | text | Starting zone |
+
+### /gm battle start
+
+GM: begin round 1 after announcing enemy intentions.
+
+No arguments.
+
+### /gm battle panel
+
+GM: post a live battle panel that updates after commands.
+
+No arguments.
+
+### /gm battle finish
+
+GM: finish a fight or challenge and record its outcome.
+
+| Argument | Required/default | Type or choices | Meaning |
+|---|---|---|---|
+| `outcome` | Required | text | Outcome |
+
+### /gm enemy add
+
+GM: create a Minion, Rival, Elite, or Boss.
+
+| Argument | Required/default | Type or choices | Meaning |
+|---|---|---|---|
+| `name` | Required | text | Name |
+| `template` | Required | `minion`, `rival`, `elite`, `boss` | Template |
+| `zone` | Required | text | Zone |
+| `trait` | Default: `none` | `none`, `armor`, `protector`, `wide`, `fast` | Trait |
+| `reach` | Default: `touch` | `touch`, `ranged`, `scene` | Reach |
+
+### /gm enemy edit
+
+GM: set enemy Health, damage, or action count.
+
+| Argument | Required/default | Type or choices | Meaning |
+|---|---|---|---|
+| `enemy` | Required | text | Enemy |
+| `health` | Optional; empty | integer | Health |
+| `damage` | Optional; empty | integer | Damage |
+| `actions` | Optional; empty | integer | Actions |
+| `trait` | Optional; empty | `armor`, `protector`, `wide`, `fast` | Trait |
+| `enabled` | Default: `true` | true/false | Enabled |
+
+### /gm enemy intent
+
+GM: announce the enemy’s reliable intention.
+
+| Argument | Required/default | Type or choices | Meaning |
+|---|---|---|---|
+| `enemy` | Required | text | Enemy |
+| `intention` | Required | text | Intention |
+
+### /gm enemy move
+
+GM: resolve permitted enemy movement.
+
+| Argument | Required/default | Type or choices | Meaning |
+|---|---|---|---|
+| `enemy` | Required | text | Enemy |
+| `zone` | Required | text | Zone |
+
+### /gm enemy attack
+
+GM: spend an enemy action and request player defenses.
+
+| Argument | Required/default | Type or choices | Meaning |
+|---|---|---|---|
+| `enemy` | Required | text | Enemy |
+| `targets` | Required | text | Active hero IDs or mentions, separated by commas |
+| `description` | Required | text | Announced attack and fictional effect |
+| `damage` | Optional; empty | integer | Announced damage override; default uses the enemy card |
+
+### /gm enemy action
+
+GM: resolve or skip an enemy action, including objectives.
+
+| Argument | Required/default | Type or choices | Meaning |
+|---|---|---|---|
+| `enemy` | Required | text | Enemy |
+| `description` | Required | text | Description |
+| `objective` | Optional; empty | text | Objective |
+| `amount` | Default: `1` | integer | Amount |
+
+### /gm objective add
+
+GM: create a public progress objective and its prerequisites.
+
+| Argument | Required/default | Type or choices | Meaning |
+|---|---|---|---|
+| `key` | Required | text | Key |
+| `name` | Required | text | Name |
+| `goal` | Default: `4` | integer | Goal |
+| `zone` | Optional; empty | text | Zone |
+| `prerequisites` | Optional; empty | text | Existing objective IDs, separated by commas |
+
+### /gm objective tick
+
+GM: correct or advance objective progress.
+
+| Argument | Required/default | Type or choices | Meaning |
+|---|---|---|---|
+| `key` | Required | text | Key |
+| `amount` | Required | integer | Amount |
+| `reason` | Required | text | Reason |
+
+### /gm objective danger
+
+GM: announce a Danger track and its consequence.
+
+| Argument | Required/default | Type or choices | Meaning |
+|---|---|---|---|
+| `name` | Optional; empty | text | Name |
+| `consequence` | Optional; empty | text | Consequence |
+| `goal` | Default: `3` | integer | Goal |
+| `active` | Default: `true` | true/false | Active |
+
+### /gm session start
+
+GM: start one official main or side session.
+
+| Argument | Required/default | Type or choices | Meaning |
+|---|---|---|---|
+| `name` | Required | text | Name |
+| `side` | Default: `false` | true/false | Side |
+| `prep_theme` | Optional; empty | text | Required theme for an official side session |
+| `participants` | Optional; empty | text | Optional player mentions/IDs; mark these attendees immediately |
+
+### /gm session mark
+
+GM: mark or remove a player’s meaningful participation.
+
+| Argument | Required/default | Type or choices | Meaning |
+|---|---|---|---|
+| `user` | Required | player | Choose a player |
+| `participated` | Default: `true` | true/false | Participated |
+
+### /gm session end
+
+GM: record the session and award capped Training and Prep.
+
+| Argument | Required/default | Type or choices | Meaning |
+|---|---|---|---|
+| `summary` | Required | text | Summary |
+
+### /gm session log
+
+Read the latest session records.
+
+No arguments.
+
+### /gm mission start
+
+GM: lock prepared choices and assign held Prep to a main mission.
+
+| Argument | Required/default | Type or choices | Meaning |
+|---|---|---|---|
+| `name` | Required | text | Name |
+
+### /gm mission end
+
+GM: finish a mission and expire its unused Prep.
+
+No arguments.
+
+### /gm scene
+
+GM: begin a new meaningful scene and refresh Talents and items.
+
+| Argument | Required/default | Type or choices | Meaning |
+|---|---|---|---|
+| `name` | Required | text | Name |
 
 ### /gm config
 
@@ -760,7 +635,7 @@ GM: wake a Down hero at 1 Health between encounters.
 |---|---|---|---|
 | `user` | Required | player | Choose a player |
 
-### /gm zone
+### /gm zone add
 
 GM: create a zone with clear or blocked connections.
 
@@ -770,7 +645,7 @@ GM: create a zone with clear or blocked connections.
 | `connect_to` | Optional; empty | text | Existing zone IDs separated by commas |
 | `clear` | Default: `true` | true/false | Clear |
 
-### /gm link
+### /gm zone link
 
 GM: open or block a connection between two zones.
 
@@ -780,7 +655,7 @@ GM: open or block a connection between two zones.
 | `second` | Required | text | Second |
 | `clear` | Default: `true` | true/false | Clear |
 
-### /gm position
+### /gm zone position
 
 GM: correct a hero or enemy position.
 
@@ -790,7 +665,7 @@ GM: correct a hero or enemy position.
 | `zone` | Required | text | Zone |
 | `reason` | Required | text | Reason |
 
-### /gm phase
+### /gm battle phase
 
 GM: begin the enemy phase or next round.
 
@@ -798,7 +673,7 @@ GM: begin the enemy phase or next round.
 |---|---|---|---|
 | `phase` | Required | `enemies`, `next` | Phase |
 
-### /gm skip
+### /gm battle skip
 
 GM: end an absent hero’s turn without spending optional resources.
 
@@ -807,7 +682,7 @@ GM: end an absent hero’s turn without spending optional resources.
 | `user` | Required | player | Choose a player |
 | `reason` | Required | text | Reason |
 
-### /gm hazard
+### /gm battle hazard
 
 GM: resolve a damaging hazard using player defenses.
 
@@ -867,6 +742,7 @@ Response is private by default.
 ## Values and limits
 
 - Core stat dice are d6, d8, d10, and d12; starting assignment is d10, d8, d8, d6.
+- /hero roll randomly assigns those four starting dice once. It saves the assignment before creation, applies it to a draft, and shows that same saved result on repeat. It does not roll random Health or Energy. /hero stats remains available for manual assignment.
 - Hero Health is 0–6; Energy is 0–3. Zero Health means Down.
 - Custom dice: 1–1,000,000,000 numbered sides; up to 100 dice and 20 expression terms per command.
 - /roll defaults to 1d20. Its bonus field is a whole number within ±1 billion and is added once to the total, alongside any expression modifiers.
@@ -874,11 +750,12 @@ Response is private by default.
 - Previously saved named dice remain usable with `/roll dice:1d[name]`. No dice-create/list/remove slash commands are registered.
 - Keep-high/low requires one positive numeric dice pool; modifiers and bonus points are added after choosing the kept die. Dice containing any text faces cannot use keep-high/low, subtraction, numeric modifiers, or bonus points. Text results have no numeric total.
 - /roll can be used before character creation or while a tracked roll waits. It does not spend resources or apply tracked game effects.
-- Custom hero trackers hold up to 20 names with values up to 120 characters; they are notes/manual counters on the sheet. Leave the value blank to delete a tracker and free its slot.
+- /hero notes holds up to 20 names with values up to 120 characters. These are manual notes/counters. Leave the value blank to delete a note. The short sheet previews three notes; details:true shows all of them.
 - A battle supports up to 20 participants, 25 zones, 25 enemies, and 20 progress objectives. IDs for zones/objectives use up to 32 letters, digits, underscores, or hyphens.
 - Enemy Health corrections: 0–10000; damage: 0–20; action count: 1 or 2. Objective/Danger goals: 1–100.
 - Weekly reset: weekday 0=Monday through 6=Sunday; local hour 0–23. Use a timezone name such as America/New_York.
-- Move/Talent/item choices are limited to learned and GM-approved options. Custom move names describe the same mechanical template.
+- /hero build combines starting choices and prepared loadouts. Established heroes may select only learned and GM-approved options. Omitted fields keep their current choices. item:none removes a prepared item. Changing choices never refreshes spent uses.
+- A hero’s first battle move or action starts the turn automatically. Another hero must end their turn before yours starts. /battle end can also pass an unused turn.
 - Resource used flags accept 0 for available and 1 for spent. Training corrections accept 0–10000.
 - /faq searches written answers, browses topics, or accepts an exact FAQ ID. Replies are private unless share:true is selected. It is available before character creation and while a roll waits.
 - GMs can save up to 50 custom FAQs per server with /gm faq-add; using an existing custom ID updates it. Questions are 1–150 characters, answers 1–2000, and IDs are up to 32 characters. /gm faq-remove removes custom answers; core rule IDs are protected.

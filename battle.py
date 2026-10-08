@@ -13,16 +13,48 @@ def zone_id(value):
 
 
 class Battle:
+    @operation
+    def strike(self, c, *, targets, stat='power', method='Agreed action.', move='basic', edge=False, pressure=False, talent=False, prep=False):
+        if move == 'capture':
+            foes = [value.strip() for value in targets.split(',')]
+            require(len(foes) == 1 and foes[0], 'Capture chooses one enemy ID.')
+            return self.battle_capture(c, enemy=foes[0], stat=stat, method=method, edge=edge, pressure=pressure, talent=talent, prep=prep)
+        return self.battle_attack(c, targets=targets, stat=stat, method=method, move=move,
+                                  edge=edge, pressure=pressure, talent=talent, prep=prep)
+
+    @operation
+    def protect(self, c, *, user=None, method='Protect against the announced attack.', kind='guard'):
+        require(kind in {'guard','shield'}, 'Choose Guard or Shield.')
+        if kind == 'shield':
+            require(user is None, 'Shield protects your zone. Leave the player option empty.')
+            return self.battle_shield(c, method=method)
+        return self.battle_guard(c, user=user, method=method)
+
+    @operation(gm=True)
+    def edit_enemy(self, c, *, enemy, health=None, damage=None, actions=None, trait='', enabled=True):
+        result = self.enemy_edit(c, enemy=enemy, health=health, damage=damage, actions=actions)
+        if trait:
+            result = self.enemy_trait(c, enemy=enemy, trait=trait, enabled=enabled)
+        return result
+
+    @operation(gm=True)
+    def danger(self, c, *, name='', consequence='', goal=3, active=True):
+        if not active:
+            return self.danger_stop(c, reason=consequence or 'The danger has ended.')
+        return self.danger_set(c, name=name, consequence=consequence, goal=goal)
+
     def battle(self, c, *, phase=None):
         b = c.state['battle']
-        require(b is not None and b['phase'] != 'finished', 'There is no active battle. GM: /battle create.')
+        require(b is not None and b['phase'] != 'finished', 'There is no active battle. GM: /gm battle create.')
         require(phase is None or b['phase'] == phase, f"This needs the {phase} phase.")
         return b
 
     def turn(self, c, *, allow_down=False):
         b = self.battle(c, phase='heroes')
         require(not b['incoming'] and not b['bonus_moves'], 'Finish all defenses and bonus movement choices first.')
-        require(b['active'] == c.uid, 'Use /battle turn when it is your turn. Another hero may currently be acting.')
+        if b['active'] is None:
+            self.battle_turn(c)
+        require(b['active'] == c.uid, 'Another hero is taking their turn. Wait for them to end it.')
         h = c.hero()
         require(allow_down or h['health'] > 0, 'A Down hero can only cheer once per fight, or end the turn.')
         return b, h, b['budget']
@@ -80,14 +112,14 @@ class Battle:
         }
         for user in users:
             c.hero(user).update(healed=False, cheered=False)
-        return {'text': 'Battle created. GM: add zones, enemies, objectives, and intentions, then /battle start. Health and Energy are unchanged.'}
+        return {'text': 'Battle created. GM: add zones, enemies, objectives, and intentions, then /gm battle start. Health and Energy are unchanged.'}
 
     @operation(gm=True)
     def zone_add(self, c, *, name, connect_to='', clear=True):
         b = self.battle(c)
         name = zone_id(name)
         links = [zone_id(x) for x in connect_to.split(',') if x.strip()]
-        require(name not in b['zones'], 'That zone already exists. Use /gm link to change a connection.')
+        require(name not in b['zones'], 'That zone already exists. Use /gm zone link to change a connection.')
         require(len(b['zones']) < 25 and all(x in b['zones'] for x in links), 'Use at most 25 zones and existing connections.')
         b['zones'][name] = {}
         for other in links:
@@ -208,7 +240,7 @@ class Battle:
     def battle_start(self, c):
         b = self.battle(c, phase='setup')
         b.update(phase='heroes', round=1)
-        return {'text': 'Round 1: heroes choose order. Each player uses /battle turn, acts, then /battle end.'}
+        return {'text': 'Round 1: heroes choose order. Your first move or action starts your turn automatically. Finish with /battle end.'}
 
     @operation
     def battle_turn(self, c):
@@ -247,9 +279,9 @@ class Battle:
         if phase == 'enemies':
             require(b['phase'] == 'heroes', 'This needs the heroes phase.')
             missing = [u for u in b['participants'] if u not in b['acted'] and c.hero(u)['health'] > 0]
-            require(not missing, 'Heroes still have turns. They can /battle end, or the GM can /gm skip.')
+            require(not missing, 'Heroes still have turns. They can /battle end, or the GM can /gm battle skip.')
             b['phase'] = 'enemies'
-            return {'text': 'Enemy phase. GM: resolve each surviving foe’s announced actions with /enemy attack or /enemy action.'}
+            return {'text': 'Enemy phase. GM: resolve each surviving foe’s announced actions with /gm enemy attack or /gm enemy action.'}
         require(phase == 'next' and b['phase'] == 'enemies', 'Use enemies, or next after the enemy phase.')
         require(all(e['health'] == 0 or e['used'] >= e['actions'] for e in b['enemies'].values()), 'Resolve or explicitly skip the remaining enemy actions first.')
         messages = []
@@ -475,7 +507,7 @@ class Battle:
     def battle_automatic(self, c, *, method):
         b, h, budget = self.turn(c)
         self.action(budget)
-        return {'text': f"{h['hero_name']} uses an ordinary action: {clean(method, 500)}\nGM: confirm the fictional effect. Use /objective tick if this safely advances a track."}
+        return {'text': f"{h['hero_name']} uses an ordinary action: {clean(method, 500)}\nGM: confirm the fictional effect. Use /gm objective tick if this safely advances a track."}
 
     def enemy_action_budget(self, foe):
         require(foe['used'] < foe['actions'], 'That enemy has used all its actions this round.')

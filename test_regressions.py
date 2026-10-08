@@ -268,9 +268,9 @@ def test_modals_remain_initial_responses_and_guide_is_available_after_defer(worl
         await bot.run_spec(modal, create_spec, {})
         modal.response.send_modal.assert_awaited_once()
         modal.response.defer.assert_not_awaited()
-        guide_spec = next(s for s in SPECS if s.path == 'guide')
+        guide_spec = next(s for s in SPECS if s.path == 'help')
         guide = interaction(request=778)
-        await bot.run_spec(guide, guide_spec, {})
+        await bot.run_spec(guide, guide_spec, {'topic':'handbook'})
         guide.response.defer.assert_awaited_once_with(ephemeral=True, thinking=True)
         file = guide.edit_original_response.call_args.kwargs['attachments'][0]
         assert file.filename == 'PLAYER_HANDBOOK.md'
@@ -288,7 +288,7 @@ def test_battle_panel_saves_the_deferred_response_message(world):
         i = interaction(user=1)
         i.channel_id = 123
         i.edit_original_response = AsyncMock(return_value=SimpleNamespace(id=456))
-        panel_spec = next(s for s in SPECS if s.path == 'battle panel')
+        panel_spec = next(s for s in SPECS if s.path == 'gm battle panel')
         await bot.run_spec(i, panel_spec, {})
         i.response.defer.assert_awaited_once_with(ephemeral=False, thinking=True)
         assert world.state['battle']['board'] == {'channel_id':123, 'message_id':456}

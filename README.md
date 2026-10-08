@@ -4,12 +4,15 @@ A playable Discord bot for the simplified MHA university AU rules developed for 
 
 ## What is included
 
-- **85 slash commands** with guided character and Quirk forms, rule help, searchable FAQs, and a downloadable player handbook.
+- **74 slash commands in 8 main menus** with guided character and Quirk forms, rule help, searchable FAQs, and a downloadable player handbook.
+- `/hero roll` assigns and saves d10, d8, d8, and d6 across all four stats. Creation applies saved stats automatically; Health stays 6 and Energy stays 3.
+- `/hero build` combines move, Talent, and item choices. Turns begin with the first action or move. Capture is an attack option; Shield is a Guard option; `/hero help` works inside and outside battles.
+- Short character cards with a full `details:true` option, brief confirmations, and compact roll results.
 - Four stat dice; Health, Energy, Training, prepared moves, Talents, items, Prep, and custom personal trackers.
 - Arbitrary numbered dice, mixed dice expressions, keep-high/low, weighted custom faces, and text dice.
 - Plain Discord messages with bold headings, readable dice results, and bold totals. `/roll` replaces the old `/dice` group and supports an optional `bonus`.
 - Cooperative battles with zones, enemy cards, turn budgets, Armor, Help, Guard, Shield, Capture, healing, group defenses, objectives, and Danger.
-- Accept/Plus Ultra buttons after stat rolls, restored if the bot restarts while a decision is waiting.
+- Keep/Plus Ultra buttons after stat rolls, restored if the bot restarts while a decision is waiting.
 - Main and side sessions, meaningful-participation rewards, weekly Training caps, unlock requests, shared milestones, and friendly sparring.
 - SQLite saves after each successful command, a live battle panel, GM corrections, campaign exports, and full database backups.
 - **`/faq`** browses categories or searches common questions, with autocomplete suggestions. GMs can add persistent campaign answers with `/gm faq-add` and remove them with `/gm faq-remove`.
@@ -30,7 +33,7 @@ Leave the Interactions Endpoint URL empty. This bot receives interactions throug
 
 ## 2. Fix the Railway build and deploy
 
-Start with **START_HERE.md** if you are using GitHub's web file uploader. This release is **1.3.0**.
+Start with **START_HERE.md** if you are using GitHub's web file uploader. This release is **2.0.0**.
 
 The error `COPY ua_bot ./ua_bot ... "/ua_bot": not found` means that Docker cannot see the old source folder in its build context. An upload that flattens or omits folders, or a Railway Root Directory pointing at the wrong folder, can cause it. This version runs a prebuilt **`bot.pyz`**, which contains all bot modules, the player handbook, and the backup utility.
 
@@ -70,7 +73,7 @@ Railway supplies `RAILWAY_VOLUME_MOUNT_PATH` for an attached volume. Do not defi
 
 Use **one replica**, one region, and a continuously running service. Disable Serverless/App Sleeping, remove any cron schedule, and leave HTTP healthcheck paths and public domains unset. This is a Discord Gateway worker. The Dockerfile uses Python 3.12, installs pinned dependencies, copies `bot.pyz`, validates the bundle offline, and starts it. Railway charges follow your account's plan; check your dashboard.
 
-Watch runtime logs for `UA Hero College connected as bot ID ...`. Then use `/help`, `/faq`, `/guide`, and `/hero sheet`. Commands always register globally for every server the bot joins. An existing `DISCORD_GUILD_ID` adds a fast mirror in that server; it does not limit the bot to that server. You can retain it during this update. The bot must be installed with application-command permissions in each server.
+Watch runtime logs for `UA Hero College connected as bot ID ...`. Then use `/help`, `/faq`, `/help topic:handbook`, and `/hero sheet`. Commands always register globally for every server the bot joins. An existing `DISCORD_GUILD_ID` adds a fast mirror in that server; it does not limit the bot to that server. You can retain it during this update. The bot must be installed with application-command permissions in each server.
 
 ### Railway CLI alternative
 
@@ -93,7 +96,7 @@ Choose the project, environment, and bot service you configured. This uploads th
 
 ### Updating the same service
 
-Keep the existing token, IDs, database path, volume, and single replica. Upload the four new deployment files together and redeploy the existing service. Character sheets, battles, pending rolls, sessions, FAQs, and creator settings remain in the saved database. Startup automatically migrates the private creator-control table; no manual database changes are needed. Do not replace the volume or delete the database as part of this code update.
+Keep the existing token, IDs, database path, volume, and single replica. Upload the four new deployment files together and redeploy the existing service. Character sheets, battles, pending buttons, sessions, and FAQs remain saved. The simple creator controls start at normal; old queues are archived and never executed. New settings persist across restarts; no manual database changes are needed. Do not replace the volume or delete the database as part of this code update.
 
 If you edit the readable Python source or handbook, rebuild the bundle before uploading it:
 
@@ -107,12 +110,12 @@ Python does not regenerate `bot.pyz` automatically. Upload the rebuilt bundle an
 ## 3. Start the campaign
 
 1. As the creator, run `/gm config`. Optionally select a trusted GM role. Default Training reset: Monday at midnight, **America/New_York**. Only the creator can change access/reset settings.
-2. Players use `/help topic:create`, create their heroes, and `/hero submit`. Review the submitted Quirk and mechanical choices, then `/gm approve user:@Player`.
-3. Start an official session with `/session start name:First Day` and mark meaningful participants with `/session mark user:@Player`.
-4. For a main mission, use `/mission start name:Campus Rescue` after players prepare their loadouts. This locks prepared choices and assigns waiting Prep.
-5. Run checks and battles. Use `/session end summary:...` to award capped Training. Finish the battle before `/mission end` or safe recovery.
+2. Players use `/hero roll`, `/hero create`, `/hero quirk`, and `/hero submit`. Review the submitted Quirk and mechanical choices, then `/gm approve user:@Player`.
+3. Start an official session with `/gm session start name:First Day participants:@Player,@Player` to mark attendees together. Use `/gm session mark` for late arrivals or removing participation.
+4. For a main mission, use `/gm mission start name:Campus Rescue` after players prepare their loadouts. This locks prepared choices and assigns waiting Prep.
+5. Run checks and battles. Use `/gm session end summary:...` to award capped Training. Finish the battle before `/gm mission end` or safe recovery.
 
-Players can learn at their own pace through `/help`, `/rules`, `/faq`, and `/guide`. The bot shows the actual roll before anyone chooses Plus Ultra. `/roll` shows raw dice immediately; use `/check` and battle actions for tracked game rolls.
+Players can learn at their own pace through `/help`, `/help topic:moves`, `/faq`, and `/help topic:handbook`. The bot shows the actual roll before anyone chooses Plus Ultra. `/roll` shows raw dice immediately; use `/check` and battle actions for tracked game rolls.
 
 ### Simple dice rolls
 
@@ -153,7 +156,7 @@ Up to 50 custom answers per server are saved across restarts and appear in searc
 | `bot.pyz` | Complete deployable app; run with Python 3.12 |
 | `build_release.py` | Rebuild the bundle after source edits |
 | `docs/PLAYER_GUIDE.md` | Quick player onboarding and common commands |
-| `docs/PLAYER_HANDBOOK.md` | Complete campaign player rules; `/guide` sends this |
+| `docs/PLAYER_HANDBOOK.md` | Complete campaign player rules; `/help topic:handbook` sends this |
 | `docs/GM_GUIDE.md` | Running sessions and a complete battle walkthrough |
 | `docs/COMMAND_REFERENCE.md` | Every public slash command and its arguments |
 | `CREATOR_ONLY.md` | Private creator controls; keep this document private |
@@ -190,7 +193,7 @@ python -m pytest -q
 
 For local play, copy `.env.example` to `.env`, fill in the token and IDs, and keep `BOT_DB_PATH=data/ua.sqlite3`. Start with `python -m ua_bot`. Run only one copy of the bot against your live server/database. The project ignores local credentials, saves, and virtual environments during source and container uploads.
 
-The offline check validates the real Discord command tree without a token. The package has passed **249 automated tests** locally, including Gateway event delivery, universal creator controls, legal roll arithmetic, probability adjustments, and saved-data migration, and its pinned dependencies pass `pip check`. Offline checks do not log in to Discord. Live deployment verification is specific to your Railway environment. The container itself has not been built in this workspace. The real bundle also passed that check from an isolated four-file upload directory, including its embedded handbook and backup command. The Dockerfile runs the same bundle validation during a build.
+The offline check validates the real Discord command tree without a token. The package has passed **245 automated tests** locally, including Gateway event delivery, saved starting stats, automatic turns, unified loadouts, creator controls, legal arithmetic, and saved-data migration, and its pinned dependencies pass `pip check`. Offline checks do not log in to Discord. Live deployment verification is specific to your Railway environment. The container itself has not been built in this workspace. The real bundle also passed that check from an isolated four-file upload directory, including its embedded handbook and backup command. The Dockerfile runs the same bundle validation during a build.
 
 Warnings about optional voice libraries are harmless for this text-command bot. Python 3.12 may also show an upstream `audioop` deprecation warning; the Dockerfile pins Python 3.12.
 
@@ -198,9 +201,9 @@ Warnings about optional voice libraries are harmless for this text-command bot. 
 
 - **`COPY ua_bot` fails:** upload the four current deployment files at the repository root and use the root in Railway; follow START_HERE.md.
 - **Commands missing:** confirm `applications.commands` scope, the bot's server installation, the server ID, and the connected log line. Restart once after fixing the configuration.
-- **A command waits:** use `/pending`. The rolling player chooses a button or `/resolve`; the GM can accept an absent player's result or `/gm cancel-roll` with a reason. Other gameplay changes wait until this decision is resolved.
+- **A command waits:** use `/battle resolve`. The rolling player chooses Keep / Plus Ultra or `choice:keep` / `choice:plus`; the GM can keep an absent player's result or `/gm cancel-roll` with a reason. Other gameplay changes wait until this decision is resolved.
 - **A battle cannot advance:** use `/battle status`. End the active hero turn, finish every defense and bonus movement choice, then resolve or explicitly skip enemy actions.
-- **A live panel fails:** check channel permissions and use `/battle panel` again. The underlying state stays saved; `/battle status` gives the complete board if the compact panel is truncated.
+- **A live panel fails:** check channel permissions and use `/gm battle panel` again. The underlying state stays saved; `/battle status` gives the complete board if the compact panel is truncated.
 - **Wrong game change:** `/gm cancel-roll` restores a waiting roll's costs. `/gm undo` reverses the latest saved campaign change. Corrections to Health/Energy/etc. use `/gm resource` with a public reason.
 - **Railway storage error:** attach the volume at `/data`, set the database path correctly, and redeploy. Do not delete the volume when updating source.
 - **Backups:** turn on Railway volume backups where available and keep copies away from the live volume. `/gm export` is a readable campaign snapshot, not a full restore backup. See the GM guide for `backup.py`.

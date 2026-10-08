@@ -100,10 +100,10 @@ def test_custom_faq_persists_and_old_campaign_without_field_still_works(tmp_path
 def test_public_faq_contains_no_private_controls(world):
     public=''.join(e.question+e.answer+e.tags for e in BUILTIN)
     assert 'rigger' not in public.lower()
-    world.game.private.handle(1,'!Rigger next any 8',is_dm=True,guild_ids=[100])
-    before=world.store.db.execute('SELECT remaining FROM rig_rules').fetchone()[0]
+    world.game.private.handle(1,'!Rigger force 8',is_dm=True,guild_ids=[100])
+    before=world.game.private.load()['next']
     assert 'no matching' in world.call('faq',2,question='Rigger')['title']
-    assert world.store.db.execute('SELECT remaining FROM rig_rules').fetchone()[0]==before
+    assert world.game.private.load()['next']==before
     assert 'rig_rules' not in json.dumps(world.call('faq',2))
 
 

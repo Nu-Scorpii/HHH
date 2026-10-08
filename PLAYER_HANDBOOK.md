@@ -36,7 +36,15 @@ For a simple best-of-two roll, choose `dice:2d20 keep:high`. `keep:low` keeps th
 
 For weighted or text faces, use `/roll dice:1d[custom] faces:["sun","rain","rain","storm"]`. Repeated faces are more likely. Numeric custom faces, such as `[0,1,1,5]`, can use bonuses. Text faces show words and have no numeric total; they cannot use bonuses, modifiers, subtraction, or keep-high/low. Faces apply only to this roll.
 
-Raw `/roll` results are useful for any extra dice the GM asks for. Tracked game actions use `/check` or the battle commands, with the stat rules above and their Accept/Plus Ultra buttons.
+Raw `/roll` results are useful for any extra dice the GM asks for. Tracked game actions use `/check` or the battle commands, with the stat rules above and their Keep/Plus Ultra buttons.
+
+## Fast character setup in the bot
+
+Use `/hero roll` → `/hero create` → `/hero quirk` → `/hero submit`. The bot randomly assigns **d10, d8, d8, and d6** across your four stats, saves the assignment, and applies it when you create the hero. You can also roll after creating a new draft. Repeating the command shows the saved assignment; it never rerolls or resets an established hero. Health is fixed at 6, Energy at 3, and Training at 0, so there are no extra starting-resource rolls.
+
+The creation form requires only a real name and hero name. Age defaults to 18, with optional goal and team connection. Your default moves are Heavy Hit and Rescue Boost, with Strong Spirit. `/hero build` changes those starting choices together; `/help topic:moves` or `talents` explains them. The defaults still need to fit your GM-approved Quirk. You may manually assign the balanced starting dice with `/hero stats` instead of accepting the random assignment.
+
+`/hero sheet` is the short card. Add `details:true` for complete text and move rules, or `share:true` to post it publicly. `/hero submit` always sends the full card for GM review. `/hero notes` records ordinary equipment, custom move flavor, and personal counters.
 
 ## Create your student
 
@@ -48,13 +56,13 @@ Follow these seven steps. You can change an unfinished choice while building you
 
 **Step 3 Give them a reason to be here.** Choose one goal, such as becoming a rescue professional, making a difficult Quirk useful, or earning the confidence of their family. Add a reason they cooperate with classmates. You can have disagreements while still helping the team.
 
-**Step 4 Assign your stats.** Place d10, d8, d8, and d6 among Power, Speed, Wits, and Heart. Use each starting die exactly once. The next section helps you choose.
+**Step 4 Assign your stats.** Use `/hero roll` for a saved random assignment, or place d10, d8, d8, and d6 yourself with `/hero stats` among Power, Speed, Wits, and Heart. Use each starting die exactly once. The next section helps you choose.
 
 **Step 5 Create your Quirk.** Describe one power, its ordinary uses, its reach, and one or two clear limits. Use the Quirk sections to turn your idea into a short card.
 
-**Step 6 Choose two signature moves and one Talent.** Pick move templates that fit your Quirk, then rename them to match your hero. Your Talent gives Edge on one suitable roll per scene. You start knowing two moves and one Talent.
+**Step 6 Choose two signature moves and one Talent.** Pick move templates that fit your Quirk using `/hero build`, or keep the defaults if they fit. Give them personal flavor in descriptions or notes. Your Talent gives Edge on one suitable roll per scene. You start knowing two moves and one Talent.
 
-**Step 7 Finish your card.** Set Health to 6 out of 6, Energy to 3 out of 3, Plus Ultra to ready, and Training to 0. Start with a costume, communicator, and sensible ordinary equipment. Your starting special support item is None.
+**Step 7 Finish your card.** The bot sets Health to 6 out of 6, Energy to 3 out of 3, Plus Ultra to ready, and Training to 0. Start with a costume, communicator, and sensible ordinary equipment. Your starting special support item is None.
 
 Send your card to the GM before your first mission. Agree on your Quirk's uses, reach, and limits, and make sure its two moves fit. If you are joining a campaign already in progress, ask how many shared stat increases the class has earned; you receive those increases too.
 
@@ -335,7 +343,10 @@ If an attempt fails, change your approach, get new help, or accept a new cost be
 
 A **zone** is a named area, such as Street, Roof, or Lobby. The GM tells you which areas connect. Within your zone, you can normally get close enough to act unless something blocks the way.
 
-Your turn gives you **one free move and one action**. A clear free move crosses one connected zone. Move before or after your action; you do not split it into several trips. You may stay where you are. Ordinary movement does not trigger opportunity attacks.
+Your turn gives you **one free move and one action**. Your first `/battle move` or action starts the turn automatically; another hero must finish their active turn first. Use `/battle end` when finished, or to pass an unused turn.
+
+Common commands are `/battle attack`, `/battle task`, `/battle guard`, `/hero help`, and `/battle recover`. Capture is attack `move:capture`; Shield is Guard `kind:shield`. Say your approach in chat, or enter `method`. Default stats are Power for attacks, Wits for tasks, and Speed for defense; choose a different fitting stat when agreed with the GM. Waiting rolls need Keep or Plus Ultra before another action. `/battle resolve` reopens the buttons; `choice:keep` keeps a result and `choice:plus` spends Plus Ultra.
+ A clear free move crosses one connected zone. Move before or after your action; you do not split it into several trips. You may stay where you are. Ordinary movement does not trigger opportunity attacks.
 
 Punches and touch powers reach your own zone. Suitable ranged powers or weapons can reach your zone or one connected zone with a clear line of sight. Long Reach or an agreed Quirk permission handles greater distance.
 

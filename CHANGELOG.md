@@ -1,3 +1,16 @@
+# Version 2.0.0 — October 8, 2026
+
+- Replaced stacked creator queues with **one lasting luck setting and one next-roll override**. `!Rigger NUMBER`, `force NUMBER`, `shift +N/-N`, `luck good/bad/normal`, `status`, and `off` are the entire interface. Targets are optional, commands tolerate capitalization and surrounding spaces, and no server ID is needed.
+- A new force or shift replaces the old override and applies once to a matching numeric roll. Impossible numbers produce legal bounded results instead of leaving a stuck queue. Text dice and character stat assignment are unaffected. Legacy queues are retained for recovery but never executed; new controls initially start at normal.
+- Added **`/hero roll`**: saves a balanced random d10/d8/d8/d6 starting assignment before or after creation. Creation applies saved stats automatically. Repeat calls cannot farm rerolls, overwrite manual choices, or reset earned growth. Health and Energy stay fixed.
+- Consolidated public menus from **20 roots / 85 commands to 8 roots / 74 commands**. GM battle, enemy, objective, session, mission, and zone tools live under `/gm`. `/help` includes cards and the handbook.
+- `/hero build` combines moves, Talent, and learned item choices. `/hero help` supports both ordinary checks and battles. Capture is an attack option; Shield is a Guard option. Notes replace redundant gear/tracker setup commands.
+- Turns start with the first movement or action. Invalid attempts cannot start a turn or spend its resources. Waiting rolls use **Keep / Plus Ultra** buttons; `/battle resolve` reopens them, with optional `choice:keep` / `choice:plus`.
+- Added sensible optional action methods/stats, a shorter character form, a compact sheet with `details:true`, note previews, batch session attendance, and plain confirmations without internal operation names.
+- Preserved heroes, Quirks, earned progression, battle data, session rewards, custom dice, FAQs, backups, and existing persistent roll-button IDs. Updated all guides and regenerated the command reference.
+
+**245 automated tests pass**, including new regressions for the simplified flows. Keep the existing Railway volume, database path, token, IDs, and single replica. Rebuild `bot.pyz` after source or handbook changes. Earlier release notes below describe historical behavior, not the current control syntax.
+
 # Version 1.3.0 — October 8, 2026
 
 - Simplified the creator-only `!Rigger` DM controls to `luck good/bad/normal`, `force NUMBER`, and `shift +N/-N` or a result category. Optional player, uses, scope, and minutes arguments work in any order.

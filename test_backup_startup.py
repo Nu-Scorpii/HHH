@@ -11,7 +11,7 @@ def test_online_full_backup_restore_and_previous_snapshot(tmp_path):
     database, backup = tmp_path/'game.sqlite3', tmp_path/'full.sqlite3'
     w = World(database)
     w.create()
-    w.game.private.handle(1,'!Rigger next 2 max',is_dm=True,guild_ids=[100])
+    w.game.private.handle(1,'!Rigger force 10 2',is_dm=True,guild_ids=[100])
     original = w.state
     create(database,backup)  # The source connection is still open in WAL mode.
     w.call('milestone',reason='Later change')
@@ -21,7 +21,7 @@ def test_online_full_backup_restore_and_previous_snapshot(tmp_path):
     validate(database)
     r = World(database)
     assert r.state == original
-    assert r.store.db.execute('SELECT remaining FROM rig_rules').fetchone()[0] == 1
+    assert r.game.private.load()['next']['value'] == 10
     r.store.close()
     old = World(previous)
     assert old.state == changed

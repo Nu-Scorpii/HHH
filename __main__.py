@@ -37,13 +37,19 @@ async def validate():
     # Serialize the actual Discord tree: catches unsupported options and groups.
     payloads = [c.to_dict(bot.tree) for c in commands]
     assert len(payloads) <= 100
+    def check(node, depth=0):
+        assert 1 <= len(node['name']) <= 32
+        assert len(node.get('description', '')) <= 100
+        assert len(node.get('options', [])) <= 25
+        assert len(node.get('choices', [])) <= 25
+        assert depth <= 3
+        size = len(node['name']) + len(node.get('description', ''))
+        for choice in node.get('choices', []):
+            assert len(choice['name']) <= 100
+            size += len(choice['name']) + (len(choice['value']) if isinstance(choice['value'], str) else 0)
+        return size + sum(check(child, depth + 1) for child in node.get('options', []))
     for payload in payloads:
-        assert len(payload['name']) <= 32 and len(payload['description']) <= 100
-        for child in payload.get('options', []):
-            assert len(child.get('options', [])) <= 25
-            assert len(child.get('description', '')) <= 100
-            for option in child.get('options', []):
-                assert len(option.get('choices', [])) <= 25
+        assert check(payload) <= 8000, f"/{payload['name']} exceeds Discord's command size limit."
     from .commands import SPECS
     print(f"Validated {len(SPECS)} slash commands across {len(commands)} root commands. No network login performed.")
     await bot.close()
