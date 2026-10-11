@@ -1,0 +1,12 @@
+.env
+data
+*.sqlite3*
+.git
+.venv
+venv
+__pycache__
+.pytest_cache
+pytest-of-root
+pip-*
+tests
+CREATOR_ONLY.md

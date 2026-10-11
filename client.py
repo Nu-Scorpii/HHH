@@ -1,335 +1,136 @@
-"""Discord transport: slash commands, guided forms, persistent roll buttons."""
+"""One slash command, one DM command, no game features or public admin commands."""
 
-import asyncio
-import inspect
-import io
-import json
 import logging
 import discord
 from discord import app_commands
-from .commands import MISSING, SPECS, help_text
-from .core import Actor
-from .display import battle_panel, messages
 from . import __version__
-from .faq import entries as faq_entries, search as faq_search
-from .rules import GameError
-from .resources import handbook_bytes
+from .dice import MAX_SIDES, prepare
+from .display import private_messages, roll_messages, safe
+from .errors import RollError
 
 log = logging.getLogger(__name__)
+NO_MENTIONS = discord.AllowedMentions.none()
 
 
-def actor(interaction):
-    if not interaction.guild_id:
-        raise GameError('Use slash commands inside your game server.')
-    return Actor(interaction.guild_id, interaction.user.id, tuple(r.id for r in getattr(interaction.user, 'roles', [])))
-
-
-class RollView(discord.ui.View):
-    def __init__(self, bot, guild, token):
-        super().__init__(timeout=None)
-        self.bot, self.guild, self.token = bot, guild, token
-        for ultra, label, style in [(False, 'Keep', discord.ButtonStyle.secondary),
-                                    (True, 'Plus Ultra · −2 HP', discord.ButtonStyle.primary)]:
-            button = discord.ui.Button(label=label, style=style, custom_id=f"ua:roll:{guild}:{token}:{int(ultra)}")
-            async def pressed(interaction, use_ultra=ultra):
-                if interaction.guild_id != self.guild:
-                    await bot.error(interaction, 'Use this roll in its original server.')
-                    return
-                okay = await bot.execute_command(interaction, 'resolve', plus_ultra=use_ultra, pending_id=token)
-                if okay and interaction.message:
-                    try:
-                        await interaction.message.edit(view=None)
-                    except discord.HTTPException:
-                        pass
-            button.callback = pressed
-            self.add_item(button)
-
-    async def on_error(self, interaction, error, item):
-        log.error('Roll button failed: %s', type(error).__name__)
-        await self.bot.error(interaction, 'That button could not finish. Use /battle resolve to bring back the buttons.')
-
-
-class HeroForm(discord.ui.Modal):
-    def __init__(self, bot, existing=None):
-        super().__init__(title='Create your student' if existing is None else 'Edit your student', timeout=900)
-        self.bot, self.editing = bot, existing is not None
-        existing = existing or {}
-        for key, label, limit, default in [
-            ('name','Real name',80,''),('hero_name','Hero name',80,''),('age','Adult age (18 or older)',3,'18'),
-            ('goal','Goal (optional)',500,'Become a hero.'),('cooperation','Team connection (optional)',500,'Protect my classmates.')]:
-            item = discord.ui.TextInput(label=label, max_length=limit, min_length=1,
-                       style=discord.TextStyle.paragraph if limit > 100 else discord.TextStyle.short,
-                       default=str(existing.get(key, default)), required=key in {'name','hero_name'})
-            setattr(self, key, item)
-            self.add_item(item)
-
-    async def on_submit(self, interaction):
-        try:
-            age = int(str(self.age) or '18')
-        except ValueError:
-            await self.bot.error(interaction, 'Use a whole-number adult age, such as 19.')
-            return
-        await self.bot.execute_command(interaction, 'hero_edit' if self.editing else 'hero_create', private=True,
-            name=str(self.name), hero_name=str(self.hero_name), age=age,
-            goal=str(self.goal) or 'Become a hero.', cooperation=str(self.cooperation) or 'Protect my classmates.')
-
-    async def on_error(self, interaction, error):
-        log.error('Hero form failed: %s', type(error).__name__)
-        await self.bot.error(interaction, 'The form could not be saved. Please try again.')
-
-
-class QuirkForm(discord.ui.Modal):
-    def __init__(self, bot, name, reach, existing=None):
-        super().__init__(title='Build your Quirk', timeout=900)
-        self.bot, self.quirk_name, self.reach = bot, name, reach
-        existing = existing or {}
-        for key, label, hint, limit in [
-            ('ability','One-sentence power','I create and shape modest amounts of ice.',500),
-            ('ordinary','2–4 ordinary uses','Cover, ramps, freezing mechanisms, ranged attacks.',1000),
-            ('cannot','What can it NOT do?','Control the weather or make an ice city.',1000),
-            ('limits','1–2 clear limits and when they apply','Needs a surface; intense heat gives Pressure.',1000)]:
-            item = discord.ui.TextInput(label=label, placeholder=hint, min_length=1, max_length=limit,
-                                       style=discord.TextStyle.paragraph, default=existing.get(key, ''))
-            setattr(self, key, item)
-            self.add_item(item)
-
-    async def on_submit(self, interaction):
-        await self.bot.execute_command(interaction, 'hero_quirk', private=True, name=self.quirk_name, reach=self.reach,
-            ability=str(self.ability), ordinary=str(self.ordinary), cannot=str(self.cannot), limits=str(self.limits))
-
-    async def on_error(self, interaction, error):
-        log.error('Quirk form failed: %s', type(error).__name__)
-        await self.bot.error(interaction, 'The Quirk form could not be saved. Please try again.')
-
-
-class HeroBot(discord.Client):
-    def __init__(self, game, *, development_guild=None):
+class DiceBot(discord.Client):
+    def __init__(self, engine):
         intents = discord.Intents.none()
         intents.guilds = True
         intents.dm_messages = True
-        # DM content is available without the privileged Message Content intent.
-        super().__init__(intents=intents, allowed_mentions=discord.AllowedMentions.none())
-        self.game, self.development_guild = game, development_guild
+        # The creator uses DMs; privileged Message Content intent is unnecessary.
+        super().__init__(intents=intents, allowed_mentions=NO_MENTIONS)
+        self.engine = engine
         self.tree = app_commands.CommandTree(self)
-        self.board_locks = {}
-        self.register_commands()
+        self.cleaned_guilds = set()
         self.tree.on_error = self.command_error
 
-    def register_commands(self):
-        groups = {}
-        for spec in SPECS:
-            segments = spec.path.split()
-            for depth in range(1, len(segments)):
-                key = tuple(segments[:depth])
-                if key not in groups:
-                    group = app_commands.Group(name=segments[depth-1], description=f"{' '.join(segments[:depth]).title()} tools", guild_only=True)
-                    groups[key] = group
-                    if depth == 1:
-                        self.tree.add_command(group)
-                    else:
-                        groups[key[:-1]].add_command(group)
-            async def callback(interaction, _spec=spec, **kwargs):
-                await self.run_spec(interaction, _spec, kwargs)
-            parameters = [inspect.Parameter('interaction', inspect.Parameter.POSITIONAL_OR_KEYWORD, annotation=discord.Interaction)]
-            for option in sorted(spec.options, key=lambda x: x.default is not MISSING):
-                parameters.append(inspect.Parameter(option.name, inspect.Parameter.KEYWORD_ONLY,
-                                                    annotation=option.annotation, default=option.default))
-            callback.__signature__ = inspect.Signature(parameters)
-            callback.__name__ = spec.path.replace(' ', '_').replace('-', '_')
-            command = app_commands.Command(name=segments[-1], description=spec.description, callback=callback)
-            command = app_commands.describe(**{o.name:o.description[:100] for o in spec.options})(command)
-            if any(o.choices for o in spec.options):
-                command = app_commands.choices(**{o.name:[app_commands.Choice(name=label,value=value) for value,label in o.choices.items()]
-                                                  for o in spec.options if o.choices})(command)
-            if len(segments) == 1:
-                command = app_commands.guild_only()(command)
-                self.tree.add_command(command)
-            else:
-                groups[tuple(segments[:-1])].add_command(command)
-            for option in spec.options:
-                if option.name in {'enemy', 'zone', 'objective'} and not option.choices:
-                    command.autocomplete(option.name)(self.autocomplete_for(option.name))
-                elif spec.path == 'faq' and option.name == 'question':
-                    command.autocomplete(option.name)(self.faq_autocomplete)
-
-    async def faq_autocomplete(self, interaction, current):
-        custom = self.game.store.load(interaction.guild_id).get('faq',{}) if interaction.guild_id else {}
-        matches = faq_search(current[:150],'all',custom,limit=25) if current.strip() else faq_entries(custom)[:25]
-        return [app_commands.Choice(name=f'{entry.key}: {entry.question}'[:100],value=entry.key) for entry in matches]
-
-    def autocomplete_for(self, field):
-        async def autocomplete(interaction, current):
-            b = self.game.store.load(interaction.guild_id).get('battle') if interaction.guild_id else None
-            if not b:
-                return []
-            if field == 'enemy':
-                values = [(key, f"{key}: {e['name']}") for key,e in b['enemies'].items()]
-            else:
-                values = [(key,key) for key in b['zones' if field == 'zone' else 'objectives']]
-            return [app_commands.Choice(name=label[:100],value=key) for key,label in values if current.lower() in label.lower()][:25]
-        return autocomplete
+        @self.tree.command(name='roll', description='Roll any dice, with optional bonus points or custom faces.')
+        @app_commands.guild_only()
+        @app_commands.describe(dice='Examples: 1d20, 2d17+1d8-3, or 2d[custom]. Default: 1d20 or your custom die.',
+                               bonus='Extra points added to the final total; negative values subtract points.',
+                               faces='Optional JSON faces: [0,1,1,5] or ["sun","rain"]. Repeats add weight.',
+                               keep='Add all dice, or keep the highest/lowest die in one pool.')
+        @app_commands.choices(keep=[app_commands.Choice(name='All dice', value='all'),
+                                   app_commands.Choice(name='Highest die', value='high'),
+                                   app_commands.Choice(name='Lowest die', value='low')])
+        async def roll(interaction: discord.Interaction, dice: str | None = None,
+                       bonus: app_commands.Range[int, -MAX_SIDES, MAX_SIDES] = 0,
+                       faces: str | None = None, keep: str = 'all'):
+            await self.run_roll(interaction, dice=dice, bonus=bonus, faces=faces, keep=keep)
 
     async def setup_hook(self):
-        for row in self.game.store.db.execute('SELECT guild,state FROM campaigns').fetchall():
-            state = json.loads(row['state'])
-            if state.get('pending'):
-                self.add_view(RollView(self, int(row['guild']), state['pending']['id']))
-        # Global registration makes ordinary rolls available in every installed
-        # server, including future servers. Keep the optional fast guild mirror.
         synced = await self.tree.sync()
-        if self.development_guild:
-            guild = discord.Object(id=self.development_guild)
-            self.tree.copy_global_to(guild=guild)
+        log.info('Registered %s slash command globally (v%s); /roll ready.', len(synced), __version__)
+
+    async def clean_guild_commands(self, guild):
+        if guild.id in self.cleaned_guilds:
+            return
+        try:
+            # Old releases could leave guild-specific game commands overriding
+            # the global tree. Remove them; this bot now has only global /roll.
+            self.tree.clear_commands(guild=guild)
             await self.tree.sync(guild=guild)
-        log.info('Registered %s slash commands globally across %s root commands (v%s); /roll ready.',
-                 len(SPECS), len(synced), __version__)
+            self.cleaned_guilds.add(guild.id)
+        except discord.HTTPException as exc:
+            log.warning('Old guild commands could not be cleared: %s; will retry after reconnect.', type(exc).__name__)
 
     async def on_ready(self):
-        log.info('UA Hero College connected as bot ID %s; %s server(s); version %s.', self.user.id, len(self.guilds), __version__)
+        for guild in self.guilds:
+            await self.clean_guild_commands(guild)
+        log.info('Dice bot connected as bot ID %s; %s server(s); version %s.', self.user.id, len(self.guilds), __version__)
+
+    async def on_guild_join(self, guild):
+        await self.clean_guild_commands(guild)
+
+    async def on_guild_remove(self, guild):
+        self.cleaned_guilds.discard(guild.id)
 
     async def on_message(self, message):
         if message.author.bot:
             return
-        reply = self.game.private.handle(message.author.id, message.content,
-                                         is_dm=isinstance(message.channel, discord.DMChannel))
-        if reply:
-            # Replies remain exclusively in the creator's DM channel.
-            for piece in messages({'title':'Creator controls', 'icon':'🔒', 'text':reply}):
-                await message.channel.send(piece, allowed_mentions=discord.AllowedMentions.none())
+        try:
+            reply = self.engine.private_message(message.author.id, message.content,
+                is_dm=isinstance(message.channel, discord.DMChannel), request_id=message.id)
+        except Exception as exc:
+            log.error('Creator command failed: %s', type(exc).__name__)
+            if message.author.id != self.engine.owner_id or not isinstance(message.channel, discord.DMChannel):
+                return
+            reply = 'Could not save the setting. Try !Rigger status before sending it again.'
+        if reply is not None:
+            try:
+                for part in private_messages(reply):
+                    await message.channel.send(part, allowed_mentions=NO_MENTIONS)
+            except discord.HTTPException as exc:
+                log.warning('Creator reply could not be delivered: %s.', type(exc).__name__)
 
-    async def error(self, interaction, message):
-        parts = messages({'title':'Could not finish', 'icon':'⚠️', 'text':message})
-        if interaction.response.is_done():
-            if interaction.extras.pop('ua_deferred_private', None) is False:
-                # The first followup inherits a public defer's visibility.
-                # Finish that response without exposing the private error.
-                await interaction.edit_original_response(content='⚠️ **Could not finish**\n\nSee the private reply for details.',
-                    allowed_mentions=discord.AllowedMentions.none())
-            await interaction.followup.send(parts[0], ephemeral=True, allowed_mentions=discord.AllowedMentions.none())
+    async def error(self, interaction, text):
+        message = '⚠️ ' + safe(text)
+        if not interaction.response.is_done():
+            await interaction.response.send_message(message, ephemeral=True, allowed_mentions=NO_MENTIONS)
         else:
-            await interaction.response.send_message(parts[0], ephemeral=True, allowed_mentions=discord.AllowedMentions.none())
-        for part in parts[1:]:
-            await interaction.followup.send(part, ephemeral=True, allowed_mentions=discord.AllowedMentions.none())
+            if interaction.extras.pop('roll_deferred', False):
+                # Complete a public defer without making its private error public.
+                await interaction.edit_original_response(content='⚠️ **Could not finish this roll.** See the private reply.', allowed_mentions=NO_MENTIONS)
+            await interaction.followup.send(message, ephemeral=True, allowed_mentions=NO_MENTIONS)
 
     async def command_error(self, interaction, error):
         underlying = getattr(error, 'original', error)
-        if isinstance(underlying, GameError):
+        if isinstance(underlying, RollError):
             await self.error(interaction, str(underlying))
         else:
-            log.error('Slash command failed: %s', type(underlying).__name__,
-                      exc_info=(type(underlying), underlying, underlying.__traceback__))
-            await self.error(interaction, 'The command could not finish. Check /battle resolve and /battle status before retrying; the GM can correct saved state.')
+            log.error('Roll command failed: %s', type(underlying).__name__)
+            await self.error(interaction, 'Could not finish the roll. Please try again.')
 
-    async def run_spec(self, interaction, spec, kwargs):
+    async def run_roll(self, interaction, *, dice=None, bonus=0, faces=None, keep='all'):
         try:
-            acting = actor(interaction)
-            kwargs = {k:(v.id if isinstance(v,(discord.Member,discord.Role)) else v) for k,v in kwargs.items()}
-            if spec.special in {'create','edit','quirk'}:
-                existing = self.game.execute(acting,'hero_sheet')['hero'] if spec.special != 'create' else None
-                form = QuirkForm(self,kwargs['name'],kwargs['reach'],existing['quirk']) if spec.special == 'quirk' else HeroForm(self,existing)
-                await interaction.response.send_modal(form)
-                return
-            if spec.special == 'help':
-                await self.acknowledge(interaction, private=True)
-                if kwargs['topic'] == 'handbook':
-                    await self.reply(interaction, content='📖 **Player guide**\n\nYour complete rules and command guide.',
-                        file=discord.File(io.BytesIO(handbook_bytes()),filename='PLAYER_HANDBOOK.md'),ephemeral=True)
-                    return
-                if kwargs['topic'] == 'gm':
-                    self.game.execute(acting,'roster')  # Runtime role check; no admin bypass.
-                role = self.game.store.load(acting.guild_id)['settings']['gm_role_id']
-                is_gm = acting.user_id == self.game.owner_id or role is not None and int(role) in acting.role_ids
-                await self.send_result(interaction,{'title':'Help','text':help_text(kwargs['topic'], gm=is_gm)},private=True)
-                return
-            if spec.special == 'panel':
-                await self.acknowledge(interaction)
-                self.game.execute(acting,'roster')
-                result = self.game.execute(acting,'battle_status')
-                message = await self.reply(interaction, content=battle_panel(result),allowed_mentions=discord.AllowedMentions.none())
-                self.game.execute(acting,'board_set',channel_id=interaction.channel_id,message_id=message.id)
-                return
-            private = spec.private
-            if 'share' in kwargs:
-                private = not kwargs.pop('share')
-            await self.execute_command(interaction,spec.operation,private=private,**kwargs)
-        except GameError as exc:
-            await self.error(interaction,str(exc))
-
-    # Client.dispatch belongs to Discord's synchronous Gateway event machinery.
-    # Game commands need their own entry point so login and events still work.
-    async def execute_command(self, interaction, operation_name, *, private=False, **kwargs):
-        try:
-            acting = actor(interaction)
-            # Acknowledge within Discord's deadline before SQLite can wait for
-            # a file lock. The mechanical transaction remains atomic.
-            await self.acknowledge(interaction, private=private)
-            result = self.game.execute(acting,operation_name,request_id=interaction.id,**kwargs)
-        except GameError as exc:
-            await self.error(interaction,str(exc))
-            return False
-        presentation = dict(result)
-        presentation.setdefault('title', 'Done')
-        presentation.setdefault('icon', {'session':'📅', 'mission':'📍', 'spar':'🥊', 'battle':'⚔️',
-                                       'enemy':'🦹', 'objective':'🎯'}.get(operation_name.split('_')[0], '✅'))
-        await self.send_result(interaction,presentation,private=private)
-        await self.refresh_board(interaction.guild_id)
-        return True
-
-    async def acknowledge(self, interaction, *, private=False):
-        if not interaction.response.is_done():
-            await interaction.response.defer(ephemeral=private, thinking=True)
-            interaction.extras['ua_deferred_private'] = private
-
-    async def reply(self, interaction, **kwargs):
-        if 'ua_deferred_private' in interaction.extras:
-            # Fill the acknowledged response directly. Its public/private
-            # setting is fixed by defer, and files use the edit attachments API.
-            kwargs.pop('ephemeral', None)
-            if 'file' in kwargs:
-                kwargs['attachments'] = [kwargs.pop('file')]
-            response = await interaction.edit_original_response(**kwargs)
-        elif interaction.response.is_done():
-            response = await interaction.followup.send(**kwargs, wait=True)
-        else:
-            response = await interaction.response.send_message(**kwargs)
-        interaction.extras.pop('ua_deferred_private', None)
-        return response
-
-    async def send_result(self, interaction, result, *, private=False):
-        view = RollView(self,interaction.guild_id,result['pending_id']) if result.get('type') == 'pending' else None
-        if result.get('type') == 'file':
-            payload = io.BytesIO(json.dumps(result['data'],ensure_ascii=False,indent=2).encode())
-            parts = messages(dict(result, icon='📁'))
-            await self.reply(interaction,content=parts[0],file=discord.File(payload,filename=result['filename']),ephemeral=private,
-                             allowed_mentions=discord.AllowedMentions.none())
-            for part in parts[1:]:
-                await interaction.followup.send(content=part,ephemeral=private,allowed_mentions=discord.AllowedMentions.none())
+            if not interaction.guild_id:
+                raise RollError('Use /roll in a server.')
+            plan = prepare(dice, faces=faces, bonus=bonus, keep=keep)
+        except RollError as exc:
+            await self.error(interaction, str(exc))
             return
-        display_name = getattr(interaction.user, 'display_name', None) or getattr(interaction.user, 'name', 'Player')
-        parts = messages(result, display_name=display_name)
-        options = {'content':parts[0], 'ephemeral':private, 'allowed_mentions':discord.AllowedMentions.none()}
-        if view is not None:
-            options['view'] = view
-        await self.reply(interaction,**options)
+        # Acknowledge before a bounded search or the database's lock wait.
+        await interaction.response.defer(thinking=True)
+        interaction.extras['roll_deferred'] = True
+        outcome = self.engine.roll_plan(interaction.user.id, interaction.guild_id, plan, request_id=interaction.id)
+        parts = roll_messages(outcome['dice'], interaction.user.display_name)
+        await interaction.edit_original_response(content=parts[0], allowed_mentions=NO_MENTIONS)
+        interaction.extras.pop('roll_deferred', None)
         for part in parts[1:]:
-            await interaction.followup.send(content=part,ephemeral=private,allowed_mentions=discord.AllowedMentions.none())
+            await interaction.followup.send(part, allowed_mentions=NO_MENTIONS)
+        if outcome['notice'] and not outcome['replayed']:
+            await self.notify_creator(outcome['notice'])
 
-    async def refresh_board(self, guild):
-        lock = self.board_locks.setdefault(guild,asyncio.Lock())
-        async with lock:
-            state = self.game.store.load(guild)
-            board = (state.get('battle') or {}).get('board')
-            if not board:
-                return
-            try:
-                channel = self.get_channel(board['channel_id']) or await self.fetch_channel(board['channel_id'])
-                message = await channel.fetch_message(board['message_id'])
-                result = self.game.execute(Actor(guild,self.game.owner_id),'battle_status')
-                # Clear embeds on panels created by older releases during migration.
-                await message.edit(content=battle_panel(result),embeds=[],allowed_mentions=discord.AllowedMentions.none())
-            except discord.HTTPException as exc:
-                log.warning('Live panel unavailable: %s. GM can post /gm battle panel again.',type(exc).__name__)
+    async def notify_creator(self, notice):
+        try:
+            owner = self.get_user(self.engine.owner_id) or await self.fetch_user(self.engine.owner_id)
+            for part in private_messages(notice):
+                await owner.send(part, allowed_mentions=NO_MENTIONS)
+        except discord.HTTPException as exc:
+            log.warning('Creator notice could not be delivered: %s; the explanation is saved for creator status.', type(exc).__name__)
 
     async def close(self):
         await super().close()
-        self.game.store.close()
+        if self.engine.store is not None:
+            self.engine.store.close()
+            self.engine.store = None

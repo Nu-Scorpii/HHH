@@ -1,0 +1,10 @@
+.env
+data/
+*.sqlite3*
+__pycache__/
+.pytest_cache/
+pytest-of-root/
+pip-*/
+.venv/
+venv/
+*.pyc

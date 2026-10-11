@@ -7,8 +7,8 @@ import os
 from pathlib import Path
 import signal
 from dotenv import load_dotenv
-from .client import HeroBot
-from .engine import Game
+from .client import DiceBot
+from .engine import DiceEngine
 from .storage import Store
 
 
@@ -29,10 +29,8 @@ def database_path(environment):
 
 
 async def validate():
-    from .resources import handbook_bytes
-    assert handbook_bytes(), 'The player handbook is empty.'
     store = Store(':memory:')
-    bot = HeroBot(Game(store, 1))
+    bot = DiceBot(DiceEngine(store, 1))
     commands = bot.tree.get_commands()
     # Serialize the actual Discord tree: catches unsupported options and groups.
     payloads = [c.to_dict(bot.tree) for c in commands]
@@ -50,8 +48,9 @@ async def validate():
         return size + sum(check(child, depth + 1) for child in node.get('options', []))
     for payload in payloads:
         assert check(payload) <= 8000, f"/{payload['name']} exceeds Discord's command size limit."
-    from .commands import SPECS
-    print(f"Validated {len(SPECS)} slash commands across {len(commands)} root commands. No network login performed.")
+    assert [payload['name'] for payload in payloads] == ['roll']
+    assert [option['name'] for option in payloads[0]['options']] == ['dice', 'bonus', 'faces', 'keep']
+    print('Validated 1 slash command: /roll. No network login performed.')
     await bot.close()
 
 
@@ -63,10 +62,7 @@ async def run():
     if not token or token == 'put_your_bot_token_here' or not owner.isdecimal() or int(owner) <= 0:
         raise SystemExit('Set DISCORD_TOKEN and BOT_OWNER_ID in your environment. BOT_OWNER_ID is your Discord user ID, not the application ID.')
     path = database_path(os.environ)
-    dev_guild = os.getenv('DISCORD_GUILD_ID', '').strip()
-    if dev_guild and (not dev_guild.isdecimal() or int(dev_guild) <= 0):
-        raise SystemExit('DISCORD_GUILD_ID must be a server ID or empty.')
-    bot = HeroBot(Game(Store(path), int(owner)), development_guild=int(dev_guild) if dev_guild else None)
+    bot = DiceBot(DiceEngine(Store(path), int(owner)))
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGINT, signal.SIGTERM):
         try:
@@ -81,7 +77,7 @@ async def run():
 
 
 def main():
-    parser = argparse.ArgumentParser(description='UA Hero College Discord bot')
+    parser = argparse.ArgumentParser(description='Simple Discord dice bot')
     parser.add_argument('--check', action='store_true', help='Validate commands offline without credentials')
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(name)s: %(message)s')

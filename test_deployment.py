@@ -1,81 +1,51 @@
-"""Run the real deployable bundle from an isolated four-file upload."""
-
-import os
-import json
+import asyncio
 from pathlib import Path
-import shlex
-import shutil
 import subprocess
 import sys
-import tomllib
 import zipfile
-
 import pytest
-from backup import validate
+from ua_bot.__main__ import database_path, validate
 from build_release import build
-from conftest import World
 
-PROJECT = Path(__file__).resolve().parents[1]
-
-
-@pytest.fixture
-def upload(tmp_path):
-    for name in ['Dockerfile', 'requirements.txt', 'railway.toml']:
-        shutil.copy2(PROJECT/name, tmp_path/name)
-    build(PROJECT, tmp_path/'bot.pyz')
-    return tmp_path
+ROOT = Path(__file__).resolve().parents[1]
 
 
-def run_bundle(upload, *args):
-    environment = dict(os.environ, PYTHONDONTWRITEBYTECODE='1')
-    environment.pop('PYTHONPATH', None)
-    return subprocess.run([sys.executable, str(upload/'bot.pyz'), *args], cwd=upload,
-                          env=environment, capture_output=True, text=True, timeout=30)
+def test_offline_tree_check():
+    asyncio.run(validate())
 
 
-def test_four_flat_files_supply_every_docker_copy_and_offline_startup(upload):
-    assert {p.name for p in upload.iterdir()} == {'Dockerfile', 'requirements.txt', 'railway.toml', 'bot.pyz'}
-    for line in (upload/'Dockerfile').read_text().splitlines():
-        if line.startswith('COPY '):
-            for source in shlex.split(line)[1:-1]:
-                assert (upload/source).is_file(), f'Missing Docker build input: {source}'
-    config = tomllib.loads((upload/'railway.toml').read_text())
-    assert config['build']['builder'] == 'DOCKERFILE'
-    command = shlex.split(config['deploy']['startCommand'])
-    # New Railway services need no legacy TOML reader: Docker itself starts
-    # the same bundle when no dashboard start override is present.
-    docker_command = next(line[4:].strip() for line in (upload/'Dockerfile').read_text().splitlines() if line.startswith('CMD '))
-    assert json.loads(docker_command) == command
-    result = run_bundle(upload, '--check')
-    assert command == ['python', 'bot.pyz']
+def test_release_contains_only_minimal_runtime_and_runs_offline(tmp_path):
+    artifact = build(ROOT, tmp_path / 'bot.pyz')
+    with zipfile.ZipFile(artifact) as archive:
+        names = archive.namelist()
+        assert set(names) == {'__main__.py'} | {f'ua_bot/{name}.py' for name in
+                         ['__init__', '__main__', 'errors', 'dice', 'solver', 'controls', 'storage', 'engine', 'display', 'client']}
+        assert archive.testzip() is None
+    result = subprocess.run([sys.executable, str(artifact), '--check'], cwd=tmp_path, capture_output=True, text=True)
     assert result.returncode == 0, result.stderr
-    assert '74 slash commands across 8 root commands' in result.stdout
-    assert 'No network login performed' in result.stdout
-    assert not (upload/'data').exists()
+    assert 'Validated 1 slash command: /roll' in result.stdout
 
 
-def test_bundle_contains_current_sources_and_handbook_but_no_private_documents(upload):
-    with zipfile.ZipFile(upload/'bot.pyz') as bundle:
-        sources = sorted((PROJECT/'ua_bot').glob('*.py')) + [PROJECT/'backup.py']
-        expected = {'__main__.py', 'ua_bot/PLAYER_HANDBOOK.md'}
-        for source in sources:
-            name = source.relative_to(PROJECT).as_posix()
-            expected.add(name)
-            assert bundle.read(name) == source.read_bytes()
-        assert set(bundle.namelist()) == expected
-        assert bundle.read('ua_bot/PLAYER_HANDBOOK.md') == (PROJECT/'docs'/'PLAYER_HANDBOOK.md').read_bytes()
+def test_docker_uses_single_runtime_file_and_validates_it():
+    docker = (ROOT / 'Dockerfile').read_text()
+    assert 'COPY bot.pyz ./bot.pyz' in docker
+    assert 'RUN python bot.pyz --check' in docker
+    assert 'COPY ua_bot' not in docker
+    assert 'python' in (ROOT / 'railway.toml').read_text()
 
 
-def test_bundled_backup_cli_makes_a_complete_online_backup(upload):
-    w = World(upload/'game.sqlite3')
-    w.create()
-    w.game.private.handle(1, '!Rigger force 10 2', is_dm=True, guild_ids=[100])
-    original = w.state
-    result = run_bundle(upload, 'backup', 'create', '--db', 'game.sqlite3', '--out', 'saved.sqlite3')
-    assert result.returncode == 0, result.stderr
-    validate(upload/'saved.sqlite3')
-    saved = World(upload/'saved.sqlite3')
-    assert saved.state == original
-    assert saved.game.private.load()['next']['value'] == 10
-    saved.store.close()
-    w.store.close()
+def test_railway_defaults_to_volume_database(tmp_path):
+    volume = tmp_path / 'volume'
+    assert database_path({'RAILWAY_SERVICE_ID': 'service', 'RAILWAY_VOLUME_MOUNT_PATH': str(volume)}) == str(volume / 'ua.sqlite3')
+    assert database_path({}) == 'data/ua.sqlite3'
+
+
+@pytest.mark.parametrize('environment', [
+    {'RAILWAY_SERVICE_ID': 'service'},
+    {'RAILWAY_SERVICE_ID': 'service', 'RAILWAY_VOLUME_MOUNT_PATH': 'relative'},
+    {'RAILWAY_SERVICE_ID': 'service', 'RAILWAY_VOLUME_MOUNT_PATH': '/data', 'BOT_DB_PATH': 'local.sqlite3'},
+    {'RAILWAY_SERVICE_ID': 'service', 'RAILWAY_VOLUME_MOUNT_PATH': '/data', 'BOT_DB_PATH': '/data'},
+    {'RAILWAY_SERVICE_ID': 'service', 'RAILWAY_VOLUME_MOUNT_PATH': '/data', 'BOT_DB_PATH': '/data/../ephemeral.sqlite3'}])
+def test_railway_rejects_missing_volume_and_ephemeral_paths(environment):
+    with pytest.raises(SystemExit, match='persistent volume'):
+        database_path(environment)

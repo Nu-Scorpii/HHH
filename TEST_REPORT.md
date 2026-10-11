@@ -1,31 +1,11 @@
-# Verification — 2.0.0
+# Validation · 3.0.0
 
-Validated October 8, 2026 with Python 3.12 and the pinned requirements.
+139 automated tests pass on Python 3.12. Pinned runtime requirements pass `pip check`.
 
-| Check | Result |
-|---|---|
-| Automated suite | 245 passed |
-| Source offline validation | 74 slash commands across 8 root commands |
-| Runtime bundle offline validation | 74 slash commands across 8 root commands |
-| Dependency consistency | `pip check` passes |
-| Flat four-file deployment | Bundle, handbook, and backup utility work without source folders |
+The suite covers numbered and custom dice, preserved weighting, signed arithmetic, bonuses, keep-high/low, text-dice validation, malformed inputs, and result formatting. Exact forcing is compared with every reachable total on small numbered/custom combinations, including custom gaps, negative faces, subtracted pools, and highest/lowest rolls. Large numbered dice are allocated without enumerating their faces; bounded custom searches fail without changing the ordinary result.
 
-## Simplified flows
+Creator tests cover shorthand, one-setting replacement, owner/DM checks, one-use consumption, lasting luck, cross-server user targeting, custom text-face forcing, impossible results, malformed requests, duplicate deliveries, persistence, transaction rollback, old-table isolation, corrupt-setting fallback, changed creator IDs, and bounded receipt storage.
 
-Saved character assignments remain balanced, belong to one player in one server, survive restarts, and are applied by creation. Duplicate interactions and repeated calls do not draw again. Manual stats, approval, growth, pending rolls, and fixed starting resources are protected. The cache is bounded and does not use creator roll controls.
+Transport tests serialize the actual one-command Discord tree, preserve the Gateway event dispatcher, check minimal intents, clear stale server commands, keep control state out of public replies, deliver private errors, handle blocked creator DMs, and respect Discord's message-size limit. Deployment tests validate the exact minimal bundle and Railway volume paths.
 
-Unified build choices preserve learned-option restrictions, downtime locks, omitted fields, and spent-use marks. Invalid combined choices roll back the whole change. A first movement or action starts a turn while preserving participant checks, Down restrictions, one movement/action/signature budgets, Help expiry, and rollback. Capture and Shield use their simpler public routes. One Help command works in both contexts. Batch attendance deduplicates IDs and rolls back all marks on an invalid attendee.
-
-Creator controls are DM-only and owner-only. Tests cover shorthand, case/space tolerance, targeting across existing and future servers, one-use replacement, lasting good/bad luck, reset/status, legal faces/totals, keep-high/low, bonuses, signed pools, sparse custom totals, large dice, impossible requests, text-die exclusions, invalid input, transaction rollback, duplicate receipts, persistence, and full backups. Legacy queues remain archived and inactive. Seeded probability tests verify the expected directional luck change.
-
-## Existing mechanics and Discord transport
-
-The suite also checks attack/objective outcomes, enemy movement and intentions, defenses, Armor, Guard/Shield interactions, Capture action cancellation, group attacks, deferred bonus movement, Mend, support items, Plus Ultra, Energy, Talents, Help, Prep, spar ties, weekly attendance caps, unlock approvals, shared milestones, undo, cancellation, exports, startup paths, volume validation, and backup recovery.
-
-The real discord.py tree validates nested groups and option limits. Transport mocks cover Gateway dispatch, modal limits/defaults, private errors, GM access, global synchronization, persistent buttons, duplicate interactions, plain-message styling, Unicode message lengths, escaped names/faces, disabled mentions, and live-panel conversion. Player menus/help/FAQs/exports omit private controls.
-
-## Limits
-
-Local tests do not log in to Discord, play a live multiplayer battle, or directly inspect production campaign data. The Docker image is built by Railway; local verification checks the same bundled runtime offline. Live deployment verification checks Railway's active release, successful command registration, and Discord connection in filtered runtime logs. The bot's current live installation has one server; universal behavior is covered by engine tests rather than a live multi-server playtest.
-
-Python 3.12 emits an upstream `audioop` deprecation warning. Test inspection of discord.py TextInput labels produces deprecation warnings for the pinned library. Neither warning prevents commands or deployment.
+Source and `bot.pyz --check` succeed without credentials or a Discord login. The Dockerfile uses the same bundle check. Live Railway startup and command registration are checked separately during deployment. Automated Discord transport tests use mocked interactions; they do not send test messages to players.

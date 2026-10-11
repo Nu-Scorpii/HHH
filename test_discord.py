@@ -1,186 +1,158 @@
 import asyncio
-import inspect
-import json
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, Mock
-import pytest
+from unittest.mock import AsyncMock, MagicMock
 import discord
-from ua_bot.client import HeroBot, HeroForm, QuirkForm, RollView
-from ua_bot.commands import MISSING, SPECS, help_text
-from ua_bot.display import battle_panel, length, messages
+import pytest
+from ua_bot.client import DiceBot
+from ua_bot.dice import prepare
+from ua_bot.display import length, roll_messages
+from ua_bot.errors import RollError
+from conftest import ScriptedRNG
 
 
-def interaction(user=2, request=777, roles=()):
-    response = SimpleNamespace(send_message=AsyncMock(), send_modal=AsyncMock(), is_done=Mock(return_value=False))
-    async def defer(**kwargs):
-        response.is_done.return_value = True
-    response.defer = AsyncMock(side_effect=defer)
-    return SimpleNamespace(guild_id=100, user=SimpleNamespace(id=user,display_name='Rigel (Angel)',roles=[SimpleNamespace(id=r) for r in roles]),
-                           id=request, response=response, followup=SimpleNamespace(send=AsyncMock()), message=None,
-                           extras={}, edit_original_response=AsyncMock())
+def interaction(request=900):
+    response = SimpleNamespace(is_done=MagicMock(return_value=False), send_message=AsyncMock(), defer=AsyncMock())
+    followup = SimpleNamespace(send=AsyncMock())
+    return SimpleNamespace(id=request, guild_id=100, user=SimpleNamespace(id=2, display_name='Hero'),
+                           response=response, followup=followup, extras={}, edit_original_response=AsyncMock())
 
 
-def test_real_slash_tree_is_valid_and_private_command_absent(world):
-    async def run():
-        bot = HeroBot(world.game)
-        payloads = [c.to_dict(bot.tree) for c in bot.tree.get_commands()]
-        seen = []
-        def check(command, parent=''):
-            assert 1 <= len(command['name']) <= 32
-            assert len(command.get('description','')) <= 100
-            assert len(command.get('options',[])) <= 25
-            assert len(command.get('choices',[])) <= 25
-            if command.get('type') in [1,2] or not parent:
-                path = (parent+' '+command['name']).strip()
-                if not any(o.get('type') in [1,2] for o in command.get('options',[])):
-                    seen.append(path)
-                for option in command.get('options',[]):
-                    check(option,path)
-            else:
-                for option in command.get('options',[]):
-                    check(option,parent)
-        for payload in payloads:
-            check(payload)
-        assert set(seen) == {s.path for s in SPECS}
-        assert 'roll' in seen and not any(path.startswith('dice') for path in seen)
-        public = json.dumps(payloads)+''.join(help_text(x) for x in ['quick','create','quirks','rolls','battle','training','spar','gm','commands'])
-        assert 'rigger' not in public.lower()
-        assert bot.intents.guilds and bot.intents.dm_messages
-        assert not bot.intents.message_content and not bot.intents.guild_messages and not bot.intents.members
+def test_exactly_one_slash_command_and_minimal_intents(make_engine):
+    async def check():
+        bot = DiceBot(make_engine())
+        assert [command.name for command in bot.tree.get_commands()] == ['roll']
+        payload = bot.tree.get_commands()[0].to_dict(bot.tree)
+        assert [option['name'] for option in payload['options']] == ['dice', 'bonus', 'faces', 'keep']
+        assert not bot.intents.message_content
+        assert not bot.intents.guild_messages
+        assert bot.intents.dm_messages
+        assert bot.dispatch.__func__ is discord.Client.dispatch
         await bot.close()
-    asyncio.run(run())
-
-
-def test_each_slash_operation_matches_engine_arguments(world):
-    for spec in SPECS:
-        if spec.special:
-            continue
-        function = getattr(world.game,spec.operation)
-        assert function.operation
-        signature = inspect.signature(function)
-        arguments = {o.name:None if o.default is MISSING else o.default for o in spec.options if o.name != 'share'}
-        signature.bind(None,**arguments)
-
-
-def test_gateway_events_reach_handlers_and_waiters_without_running_game_commands(world):
-    async def run():
-        async with HeroBot(world.game) as bot:
-            events = [('connect', ()), ('ready', ()),
-                      ('message', (SimpleNamespace(content='hello'),)),
-                      ('interaction', (interaction(),))]
-            for event, arguments in events:
-                handler = AsyncMock()
-                setattr(bot, 'on_' + event, handler)
-                waiter = asyncio.create_task(bot.wait_for(event, timeout=1))
-                await asyncio.sleep(0)
-                try:
-                    # Discord calls this synchronously when Gateway events arrive.
-                    assert bot.dispatch(event, *arguments) is None
-                    received = await waiter
-                    assert received is (arguments[0] if arguments else None)
-                    await asyncio.sleep(0)
-                    handler.assert_awaited_once_with(*arguments)
-                finally:
-                    if not waiter.done():
-                        waiter.cancel()
-                        await asyncio.gather(waiter, return_exceptions=True)
-    asyncio.run(run())
-
-
-def test_command_saves_a_roll_and_ownership_is_enforced_by_buttons(world):
-    async def run():
-        world.create()
-        bot = HeroBot(world.game)
-        first = interaction()
-        assert await bot.execute_command(first,'check',stat='power',method='Lift debris')
-        first.response.defer.assert_awaited_once_with(ephemeral=False, thinking=True)
-        options = first.edit_original_response.call_args.kwargs
-        view = options['view']
-        assert isinstance(view,RollView) and view.is_persistent()
-        outsider = interaction(3,778)
-        await view.children[0].callback(outsider)
-        assert outsider.followup.send.call_args.kwargs['ephemeral'] is True
-        assert world.state['pending'] is not None
-        creator = interaction(1,779)
-        await view.children[1].callback(creator)
-        assert world.state['pending'] is not None and not world.h()['plus_used']
-        player = interaction(2,780)
-        await view.children[1].callback(player)
-        assert world.state['pending'] is None and world.h()['health'] == 4
-        # A duplicate interaction cannot charge Health twice.
-        await view.children[1].callback(player)
-        assert world.h()['health'] == 4
         await bot.close()
-    asyncio.run(run())
+    asyncio.run(check())
 
 
-def test_guided_forms_fit_discord_limits_and_guide_exists(world):
-    from pathlib import Path
-    async def run():
-        bot = HeroBot(world.game)
-        for form in [HeroForm(bot),QuirkForm(bot,'Ice','ranged')]:
-            assert len(form.children) <= 5
-            for field in form.children:
-                assert len(field.label) <= 45
-                assert len(field.placeholder or '') <= 100
-                assert field.max_length <= 4000
-            assert form.to_dict()['title']
-        assert (Path(__file__).resolve().parents[1]/'docs'/'PLAYER_HANDBOOK.md').is_file()
-        await bot.close()
-    asyncio.run(run())
-
-
-def test_plain_result_omits_none_view_and_mentions_are_disabled(world):
-    async def run():
-        bot = HeroBot(world.game)
-        i = interaction()
-        await bot.send_result(i,{'text':'A completed action'},private=True)
-        kwargs = i.response.send_message.call_args.kwargs
-        assert 'view' not in kwargs and kwargs['ephemeral'] is True
-        assert kwargs['content'] == '✅ **Done**\n\nA completed action'
-        assert 'embed' not in kwargs and 'embeds' not in kwargs
-        assert not kwargs['allowed_mentions'].everyone
-        assert not kwargs['allowed_mentions'].users
-        await bot.close()
-    asyncio.run(run())
-
-
-def test_large_output_and_panel_fit_plain_message_limits(world):
-    result = {'title':'Long sheet','text':('Long notes 🦸\n'*3000)}
-    pieces = messages(result)
-    assert len(pieces) > 1 and all(length(p) <= 2000 for p in pieces)
-    assert 'continued**' in pieces[1]
-    world.create()
-    world.battle(users=(2,))
-    board = battle_panel(world.call('battle_status',2))
-    assert length(board) <= 2000 and 'Full board & intentions: /battle status' in board
-
-
-def test_pending_buttons_restored_after_restart_without_login(world):
-    async def run():
-        world.create()
-        world.call('check',2,stat='power',method='Lift')
-        bot = HeroBot(world.game)
-        bot.tree.sync = AsyncMock(return_value=[])
+def test_global_sync_and_old_guild_commands_removed_once(make_engine, monkeypatch):
+    async def check():
+        bot = DiceBot(make_engine())
+        synced = AsyncMock(return_value=bot.tree.get_commands())
+        monkeypatch.setattr(bot.tree, 'sync', synced)
         await bot.setup_hook()
-        assert any(v.token == world.state['pending']['id'] for v in bot.persistent_views)
+        synced.assert_awaited_once_with()
+        guild = discord.Object(id=100)
+        bot.tree.copy_global_to(guild=guild)
+        assert bot.tree.get_commands(guild=guild)
+        await bot.clean_guild_commands(guild)
+        assert bot.tree.get_commands(guild=guild) == []
+        await bot.clean_guild_commands(guild)
+        assert synced.await_count == 2
         await bot.close()
-    asyncio.run(run())
+    asyncio.run(check())
 
 
-def test_private_command_replies_only_in_creator_one_to_one_dm(world):
-    async def run():
-        bot = HeroBot(world.game)
-        for user,channel_type in [(2,discord.DMChannel),(1,discord.TextChannel),(1,discord.GroupChannel),(1,discord.DMChannel)]:
-            channel = Mock(spec=channel_type)
-            channel.send = AsyncMock()
-            message = SimpleNamespace(author=SimpleNamespace(id=user,bot=False),channel=channel,
-                                      content='!Rigger force 8',guild=None if channel_type != discord.TextChannel else SimpleNamespace(id=100))
-            await bot.on_message(message)
-            if user == 1 and channel_type == discord.DMChannel:
-                channel.send.assert_awaited_once()
-            else:
-                channel.send.assert_not_awaited()
-        assert world.game.private.load()['next']['value'] == 8
+def test_roll_message_is_simple_and_shows_bonus():
+    result = prepare('1d20', bonus=3).roll(ScriptedRNG([8]))
+    assert roll_messages(result, 'Hero') == ['🎲 **Hero rolled 1d20**\n\nRolls: `8`\nBonus: `+3`\n\n**Total: 11**']
+
+
+def test_long_text_dice_are_chunked_and_mentions_and_markdown_escaped():
+    face = '@everyone `**' + '😀' * 20
+    result = prepare('100d[custom]', faces=[face]).roll(ScriptedRNG([face] * 100))
+    parts = roll_messages(result, '@everyone **Hero**')
+    assert len(parts) > 1
+    assert all(length(part) <= 2000 for part in parts)
+    assert all('@everyone' not in part for part in parts)
+    assert sum(part.count('😀') for part in parts) == 2000
+    assert '**Total:' not in ''.join(parts)
+
+
+def test_roll_delivery_excludes_private_state_and_notices(make_engine):
+    async def check():
+        engine = make_engine([4])
+        engine.private_message(1, '!Rigger 100', is_dm=True)
+        bot = DiceBot(engine)
+        bot.notify_creator = AsyncMock()
+        event = interaction()
+        await bot.run_roll(event, dice='1d6')
+        event.response.defer.assert_awaited_once_with(thinking=True)
+        public = event.edit_original_response.await_args.kwargs['content']
+        assert '**Total: 4**' in public
+        assert 'Rigger' not in public and 'force' not in public and '100' not in public
+        assert not event.followup.send.await_args_list
+        bot.notify_creator.assert_awaited_once()
         await bot.close()
-    asyncio.run(run())
+    asyncio.run(check())
+
+
+def test_invalid_input_gets_private_reply_without_public_defer(make_engine):
+    async def check():
+        engine = make_engine()
+        bot = DiceBot(engine)
+        event = interaction()
+        await bot.run_roll(event, dice='0d20')
+        event.response.defer.assert_not_awaited()
+        assert event.response.send_message.await_args.kwargs['ephemeral'] is True
+        assert engine.rng.calls == 0
+        await bot.close()
+    asyncio.run(check())
+
+
+def test_public_defer_error_details_stay_private(make_engine):
+    async def check():
+        bot = DiceBot(make_engine())
+        event = interaction()
+        event.response.is_done.return_value = True
+        event.extras['roll_deferred'] = True
+        await bot.command_error(event, RollError('private error detail'))
+        assert 'private error detail' not in event.edit_original_response.await_args.kwargs['content']
+        assert 'private error detail' in event.followup.send.await_args.args[0]
+        assert event.followup.send.await_args.kwargs['ephemeral'] is True
+        await bot.close()
+    asyncio.run(check())
+
+
+def test_only_creator_dm_receives_command_reply(make_engine):
+    async def check():
+        engine = make_engine()
+        bot = DiceBot(engine)
+        channel = MagicMock(spec=discord.DMChannel)
+        channel.send = AsyncMock()
+        event = SimpleNamespace(id=800, author=SimpleNamespace(id=2, bot=False), content='!Rigger 15', channel=channel)
+        await bot.on_message(event)
+        channel.send.assert_not_awaited()
+        event.author.id = 1
+        await bot.on_message(event)
+        channel.send.assert_awaited_once()
+        assert engine.store.setting(1)['mode'] == 'force'
+        await bot.close()
+    asyncio.run(check())
+
+
+def test_unavailable_creator_dm_does_not_undo_roll(make_engine, monkeypatch):
+    async def check():
+        engine = make_engine([4])
+        engine.private_message(1, '!Rigger 100', is_dm=True)
+        bot = DiceBot(engine)
+        monkeypatch.setattr(bot, 'get_user', lambda _: SimpleNamespace(send=AsyncMock(side_effect=discord.Forbidden(SimpleNamespace(status=403, reason='Forbidden'), 'DM blocked'))))
+        event = interaction()
+        await bot.run_roll(event, dice='1d6')
+        assert '**Total: 4**' in event.edit_original_response.await_args.kwargs['content']
+        assert engine.store.setting(1)['mode'] == 'off'
+        assert 'could not apply' in engine.private_message(1, '!Rigger status', is_dm=True)
+        await bot.close()
+    asyncio.run(check())
+
+
+def test_slash_in_dm_cannot_consume_private_setting(make_engine):
+    async def check():
+        engine = make_engine()
+        engine.private_message(1, '!Rigger 15', is_dm=True)
+        bot = DiceBot(engine)
+        event = interaction()
+        event.guild_id = None
+        await bot.run_roll(event)
+        assert engine.store.setting(1)['mode'] == 'force'
+        assert engine.rng.calls == 0
+        assert event.response.send_message.await_args.kwargs['ephemeral'] is True
+        await bot.close()
+    asyncio.run(check())

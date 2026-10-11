@@ -1,64 +1,79 @@
-"""Transactional SQLite persistence. Private dice controls have separate tables."""
+"""Small atomic store. Older campaign tables are left untouched and never loaded."""
 
-import json
-import sqlite3
 from contextlib import contextmanager
+import json
 from pathlib import Path
+import sqlite3
+from .controls import empty_setting, MAX_VALUE
+from .errors import require
 
-
-def fresh_campaign():
-    return {
-        "schema": 1,
-        "settings": {"gm_role_id": None, "timezone": "America/New_York", "reset_weekday": 0, "reset_hour": 0},
-        "milestones": 0, "characters": {}, "dice": {}, "faq": {}, "scene": 0,
-        "session": None, "session_log": [], "mission": None,
-        "battle": None, "spar": None, "pending": None,
-    }
+CACHE_LIMIT = 1000
 
 
 class Store:
-    def __init__(self, path):
-        self.path = str(path)
-        if self.path != ":memory:":
-            Path(self.path).parent.mkdir(parents=True, exist_ok=True)
-        self.db = sqlite3.connect(self.path, isolation_level=None)
+    def __init__(self, path='data/ua.sqlite3'):
+        if str(path) != ':memory:':
+            Path(path).parent.mkdir(parents=True, exist_ok=True)
+        self.db = sqlite3.connect(str(path), isolation_level=None, timeout=5)
         self.db.row_factory = sqlite3.Row
-        self.db.execute("PRAGMA journal_mode=WAL")
-        self.db.execute("PRAGMA foreign_keys=ON")
-        self.db.execute("PRAGMA busy_timeout=5000")
-        self.db.executescript("""
-            CREATE TABLE IF NOT EXISTS campaigns (guild TEXT PRIMARY KEY, state TEXT NOT NULL);
-            CREATE TABLE IF NOT EXISTS receipts (request TEXT PRIMARY KEY, guild TEXT NOT NULL, result TEXT NOT NULL);
-            CREATE TABLE IF NOT EXISTS history (
-                id INTEGER PRIMARY KEY, guild TEXT NOT NULL, actor TEXT NOT NULL,
-                operation TEXT NOT NULL, before_state TEXT NOT NULL, created TEXT NOT NULL);
-            CREATE INDEX IF NOT EXISTS history_guild ON history(guild, id);
-            CREATE TABLE IF NOT EXISTS rig_rules (
-                id INTEGER PRIMARY KEY, guild TEXT NOT NULL, target TEXT NOT NULL,
-                outcome TEXT NOT NULL, scope TEXT NOT NULL, remaining INTEGER NOT NULL,
-                expires REAL NOT NULL, creator TEXT NOT NULL, mode TEXT NOT NULL DEFAULT 'face');
-            CREATE TABLE IF NOT EXISTS rig_audit (
-                id INTEGER PRIMARY KEY, guild TEXT NOT NULL, target TEXT NOT NULL,
-                rule_id INTEGER NOT NULL, natural TEXT NOT NULL, final TEXT NOT NULL, created TEXT NOT NULL);
-        """)
+        self.db.execute('PRAGMA journal_mode=WAL')
+        self.db.execute('PRAGMA busy_timeout=5000')
+        self.db.executescript('''
+            CREATE TABLE IF NOT EXISTS dice_settings_v3 (owner TEXT PRIMARY KEY, state TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS dice_receipts_v3 (
+                kind TEXT NOT NULL, request TEXT NOT NULL, signature TEXT NOT NULL, result TEXT NOT NULL,
+                PRIMARY KEY(kind, request));
+        ''')
 
     @contextmanager
     def transaction(self):
-        self.db.execute("BEGIN IMMEDIATE")
+        self.db.execute('BEGIN IMMEDIATE')
         try:
-            yield self.db
-            self.db.execute("COMMIT")
+            yield
+            self.db.execute('COMMIT')
         except BaseException:
-            self.db.execute("ROLLBACK")
+            self.db.execute('ROLLBACK')
             raise
 
-    def load(self, guild):
-        row = self.db.execute("SELECT state FROM campaigns WHERE guild=?", (str(guild),)).fetchone()
-        return json.loads(row[0]) if row else fresh_campaign()
+    def setting(self, owner):
+        row = self.db.execute('SELECT state FROM dice_settings_v3 WHERE owner=?', (str(owner),)).fetchone()
+        if not row:
+            return empty_setting()
+        try:
+            state = json.loads(row['state'])
+            mode, value, target = state['mode'], state['value'], state['target']
+            assert mode in ('off', 'good', 'bad', 'force', 'shift', 'face')
+            assert target is None or isinstance(target, str) and target.isdecimal() and 0 < int(target) < 2**64
+            if mode in ('force', 'shift'):
+                assert type(value) is int and abs(value) <= MAX_VALUE
+            elif mode == 'face':
+                assert isinstance(value, str) and 1 <= len(value) <= 40
+            else:
+                assert value is None
+            assert state.get('last') is None or isinstance(state['last'], str) and len(state['last']) <= 1000
+            return {**empty_setting(), **{key: state[key] for key in empty_setting() if key in state}}
+        except (ValueError, TypeError, KeyError, AssertionError):
+            return empty_setting()
 
-    def save(self, guild, state):
-        self.db.execute("INSERT INTO campaigns VALUES(?,?) ON CONFLICT(guild) DO UPDATE SET state=excluded.state",
-                        (str(guild), json.dumps(state, ensure_ascii=False)))
+    def save_setting(self, owner, setting):
+        self.db.execute('INSERT INTO dice_settings_v3 VALUES (?,?) ON CONFLICT(owner) DO UPDATE SET state=excluded.state',
+                        (str(owner), json.dumps(setting, ensure_ascii=False)))
+
+    def receipt(self, kind, request, signature):
+        if request is None:
+            return None
+        row = self.db.execute('SELECT signature,result FROM dice_receipts_v3 WHERE kind=? AND request=?', (kind, str(request))).fetchone()
+        if not row:
+            return None
+        require(row['signature'] == signature, 'This request ID was already used for a different command. Run a fresh /roll.')
+        return json.loads(row['result'])
+
+    def remember(self, kind, request, signature, result):
+        if request is None:
+            return
+        self.db.execute('INSERT INTO dice_receipts_v3 VALUES (?,?,?,?)',
+                        (kind, str(request), signature, json.dumps(result, ensure_ascii=False)))
+        self.db.execute('DELETE FROM dice_receipts_v3 WHERE rowid NOT IN (SELECT rowid FROM dice_receipts_v3 ORDER BY rowid DESC LIMIT ?)', (CACHE_LIMIT,))
 
     def close(self):
         self.db.close()

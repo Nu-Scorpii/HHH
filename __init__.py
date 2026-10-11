@@ -1,3 +1,3 @@
-"""UA Hero College Discord bot."""
+"""A small Discord dice bot."""
 
-__version__ = "2.0.0"
+__version__ = "3.0.0"
