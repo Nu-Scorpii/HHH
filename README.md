@@ -1,6 +1,6 @@
-# Simple Discord Dice Bot · 3.0.0
+# Simple Discord Dice Bot · 3.1.0
 
-The whole bot is now custom dice rolls and one creator-only DM control. Character sheets, battles, attendance, rewards, FAQs, saved-die menus, and game rules have been removed.
+Two public commands: `/roll` for custom dice and `/avatar` for Avatar character creation. Creator controls work privately in DMs. No character tracking, battles, attendance, or saved-die menus.
 
 ## Players: `/roll`
 
@@ -44,9 +44,34 @@ Dice values use code formatting and the heading and total are bold. Long rolls a
 
 Limits: 100 dice per roll, 1–1 billion sides, up to 20 expression terms, 1–1,000 faces per custom die, and whole-number bonuses/modifiers within ±1 billion. Text faces may contain 1–40 characters. No programming expressions are evaluated.
 
+## Players: `/avatar`
+
+Run `/avatar` in a server. There are no options to fill in. The bot rolls the whole character in this order:
+
+1. **IQ:** 1d20.
+2. **Stats:** six separate results from 6d20, in order. Assign your own stat names; the bot does not invent them.
+3. **Nation:** 1d100, followed by its applicable origin detail.
+4. **Bending:** 1d100. **60–100** means bending; **1–59** means non-bender.
+5. A Nomad bender rolls an element; a non-bender rolls a combat style.
+
+| Nation roll | Origin | Extra origin roll |
+|---|---|---|
+| 1–25 | Fire Nation | 1d100 for family |
+| 26–50 | Water Tribes | 1d3: 1 Southern, 2 Northern, 3 Swamp |
+| 51–75 | Earth Kingdom | 1d20: 1–15 village under Fire Nation control, 16–20 no |
+| 76–100 | Nomad | None |
+
+Fire Nation families use **1–49 Civilian, 50–79 Military, 80–94 High ranking, 95–100 Royal**. The supplied ranges overlapped at 50, 80, and 95; this resolves those boundaries in favor of the higher tier.
+
+A Fire Nation bender gets Fire bending, a Water Tribes bender gets Water bending, and an Earth Kingdom bender gets Earth bending. A Nomad bender rolls **1d3: 1 Fire, 2 Water, 3 Earth**. Nomad is an origin, not an Air Nomad. **There is no Air bending.** Every character makes one bending check; there is no second chance check for an element.
+
+Non-benders roll **1d100: 1–20 Sword, 21–40 Bow, 41–60 Fan, 61–80 Fists, 81–100 Pressure point**. The shared endpoint 80 belongs to Fists. Inapplicable dice are never rolled: no tribe outside Water Tribes, no family outside Fire Nation, no village control outside Earth Kingdom, no combat style for benders, and no extra element roll except for Nomad benders.
+
+The message shows the six stat values and each applicable category with its actual roll. It is a character creation result, not a saved or tracked character sheet. Repeat `/avatar` only when your GM permits a new character roll.
+
 ## Creator
 
-Open the bot's DMs and send `!Rigger help`. Only the user configured as `BOT_OWNER_ID` can use it. The short instructions are in `CREATOR_ONLY.md`. The command is absent from slash-command menus and server messages are ignored. New controls use one active setting; old controls are not imported. Rigger starts **off** when upgrading to this release.
+Open the bot's DMs and send `!Rigger help`. Only the user configured as `BOT_OWNER_ID` can use it. The short instructions are in `CREATOR_ONLY.md`. The command is absent from slash-command menus and server messages are ignored. There is one active setting. Version 3.0 settings survive this update; the new Avatar part filter defaults to unrestricted for existing settings. Pre-version-3 controls are never loaded.
 
 ## Railway
 
@@ -71,7 +96,7 @@ For a new service, attach a persistent volume at **`/data`**. Set these variable
 
 Railway supplies `RAILWAY_VOLUME_MOUNT_PATH`; do not set it manually. The database must be inside that mount. A local default is `data/ua.sqlite3`. No server ID is needed; a previous `DISCORD_GUILD_ID` is ignored. The bot replaces the global command list and clears old server-specific commands when it connects. Discord clients may need a refresh before their cached menus update.
 
-The bot preserves old campaign tables on the volume without loading them. New settings and the last 1,000 command receipts use separate tables. Changes and one-use consumption commit together. Redeploys preserve the new setting. A repeated recent interaction returns the same roll and does not consume a new setting.
+The bot preserves old campaign tables on the volume without loading them. Current settings and the last 1,000 command receipts use separate tables. Changes and one-use consumption commit together. Redeploys preserve the new setting. A repeated recent interaction returns the same roll or complete Avatar character and does not consume a new setting. All rolls and control changes for one Avatar character commit together.
 
 Install the Discord application with `bot` and `applications.commands` scopes. Permit View Channel and Send Messages in the roll channel and let players use application commands. Leave the Interactions Endpoint URL empty. No privileged Gateway intents or Administrator permission are needed. Creator controls and notices require that your account can DM the bot.
 
@@ -91,7 +116,7 @@ For local play, copy `.env.example` to `.env`, fill in your token and creator ID
 
 ## Troubleshooting
 
-- Bot online but `/roll` missing: check its server installation, `applications.commands` scope, and channel permissions; refresh Discord's command menu.
+- Bot online but `/roll` or `/avatar` missing: check its server installation, `applications.commands` scope, and channel permissions; refresh Discord's command menu.
 - Old commands still visible: refresh Discord. Runtime logs report whether old server commands could be cleared; a reconnect retries failed cleanup.
 - Volume error: attach the volume to this service and place the database under its real mount, then redeploy. Retain the original database file when updating.
 - Private control not responding: DM the bot from the exact account identified by `BOT_OWNER_ID`. Use `!Rigger help` and allow DMs from the bot.

@@ -4,7 +4,7 @@ from contextlib import contextmanager
 import json
 from pathlib import Path
 import sqlite3
-from .controls import empty_setting, MAX_VALUE
+from .controls import empty_setting, MAX_VALUE, PART_DICE, PART_LIMITS
 from .errors import require
 
 CACHE_LIMIT = 1000
@@ -42,10 +42,14 @@ class Store:
         try:
             state = json.loads(row['state'])
             mode, value, target = state['mode'], state['value'], state['target']
+            part = state.get('part')
             assert mode in ('off', 'good', 'bad', 'force', 'shift', 'face')
+            assert part is None or isinstance(part, str) and part in PART_DICE and mode not in ('off', 'face')
             assert target is None or isinstance(target, str) and target.isdecimal() and 0 < int(target) < 2**64
             if mode in ('force', 'shift'):
                 assert type(value) is int and abs(value) <= MAX_VALUE
+                if part is not None and mode == 'force':
+                    assert PART_LIMITS[part][0] <= value <= PART_LIMITS[part][1]
             elif mode == 'face':
                 assert isinstance(value, str) and 1 <= len(value) <= 40
             else:
@@ -65,7 +69,7 @@ class Store:
         row = self.db.execute('SELECT signature,result FROM dice_receipts_v3 WHERE kind=? AND request=?', (kind, str(request))).fetchone()
         if not row:
             return None
-        require(row['signature'] == signature, 'This request ID was already used for a different command. Run a fresh /roll.')
+        require(row['signature'] == signature, 'This request ID was already used for a different command. Run the command again.')
         return json.loads(row['result'])
 
     def remember(self, kind, request, signature, result):

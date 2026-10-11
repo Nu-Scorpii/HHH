@@ -1,4 +1,4 @@
-# Creator controls · 3.0.0
+# Creator controls · 3.1.0
 
 **DM the bot from your creator account.** Server messages are ignored. Your account must match `BOT_OWNER_ID`; server owners, administrators, and GM roles cannot bypass this check. No server ID is needed.
 
@@ -38,8 +38,42 @@ Two less-common cases:
 
 Use `force` for a negative forced total; a bare `-4` means a shift. `face` forces an exact text label on the next single custom die, with no arithmetic or bonus. It preserves case and spaces, so the label must match a listed face. String labels such as `"7"` are text faces; numeric custom faces use normal total forcing. An incompatible next roll clears that one-use setting and privately explains why it could not apply.
 
-The prefix is case-insensitive. For familiar older syntax, `!Rigger force 15`, `!Rigger shift +3`, and `!Rigger luck good` also work. There are no queues, roll counts, scope selectors, or separate lasting/next settings.
+The prefix is case-insensitive. For familiar older syntax, `!Rigger force 15`, `!Rigger shift +3`, and `!Rigger luck good` also work. There are no queues, roll counts, server selectors, or separate lasting/next settings.
 
-Settings survive Railway restarts. New version-3 controls start off rather than loading old buggy flags. Only the current creator's settings are active. Recent duplicate DM/roll deliveries do not rearm or consume them twice. If Discord blocks a private notice, its explanation remains in `!Rigger status`.
+Settings survive Railway restarts and version-3 upgrades. Existing 3.0 settings keep working unchanged; pre-version-3 flags are not loaded. Only the current creator's settings are active. Recent duplicate DM/roll deliveries do not rearm or consume them twice. If Discord blocks a private notice, its explanation remains in `!Rigger status`.
+
+## Avatar controls
+
+Put a part before the same simple setting. It applies only to that part of `/avatar`; `/roll` ignores it. You still have **one setting**, and a new one replaces it. Add a user ID at the end as usual to target one player across every server.
+
+```text
+!Rigger nation 30
+!Rigger bending 100
+!Rigger iq +3
+!Rigger stats good
+!Rigger family 100 123456789012345678
+```
+
+| Part | What is controlled | Force range / useful numbers |
+|---|---|---|
+| `iq` | IQ 1d20 | 1–20 |
+| `stats` | The **total** of all six d20s | 6–120; 120 gives six 20s |
+| `nation` | Nation 1d100 | 1–25 Fire, 26–50 Water, 51–75 Earth, 76–100 Nomad |
+| `tribe` | Water origin 1d3 | 1 Southern, 2 Northern, 3 Swamp |
+| `family` | Fire family 1d100 | 1–49 Civilian, 50–79 Military, 80–94 High ranking, 95–100 Royal |
+| `control` | Earth village control 1d20 | 1–15 Yes, 16–20 No |
+| `bending` | Bending check 1d100 | 1–59 Non-bender, 60–100 Bender |
+| `element` | Nomad bender element 1d3 | 1 Fire, 2 Water, 3 Earth |
+| `combat` | Non-bender combat 1d100 | 1–20 Sword, 21–40 Bow, 41–60 Fan, 61–80 Fists, 81–100 Pressure point |
+
+`!Rigger avatar nation 30` is an optional longer spelling of `!Rigger nation 30`. Part names ignore case. Force values outside the listed range are rejected immediately without changing your active setting. Shifts may fail if the final value would leave the die's range; the result stays normal and only you receive the explanation.
+
+The changed value determines all later decisions. Forcing a nation into Water Tribes triggers its tribe roll; forcing bending to 100 skips the non-bender combat roll. A non-Nomad bender's element follows their nation automatically; `element` cannot turn them into another element or create an Air bender.
+
+If a one-use conditional part is skipped, it **clears after the targeted character** and tells you privately. For example, `!Rigger tribe 3` followed by a Fire Nation character does not roll an extra d3 or remain armed for a later character. Other players do not consume a targeted setting. A lasting `good`/`bad` part setting stays enabled when its part is skipped.
+
+Luck means higher/lower **numeric roll**, not a judgment about which origin is better. `!Rigger nation good` favors higher nation numbers. `!Rigger stats good` rolls two complete six-die pools and keeps the pool with the higher sum; it does not choose each die independently.
+
+Bare settings also work on `/avatar`: one-use force/shift affects **IQ first**, then clears; bare lasting good/bad applies to every rolled part. Use a named part when you want to change a later decision. Public messages show the final rolls and categories with no private setting or audit details.
 
 Public roll replies contain only the dice result. The prefix is not registered as a slash command and there is no player-facing admin help. Anyone who can read the bot source can inspect its implementation; this is private operation inside Discord, not source-code secrecy. Keep this guide for yourself.

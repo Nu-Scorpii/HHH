@@ -1,11 +1,11 @@
-# Validation · 3.0.0
+# Validation · 3.1.0
 
-139 automated tests pass on Python 3.12. Pinned runtime requirements pass `pip check`.
+231 automated tests pass on Python 3.12, including all 139 previous tests and 92 new Avatar tests. Runtime dependency compatibility and the source/bundle command checks are verified during release.
 
-The suite covers numbered and custom dice, preserved weighting, signed arithmetic, bonuses, keep-high/low, text-dice validation, malformed inputs, and result formatting. Exact forcing is compared with every reachable total on small numbered/custom combinations, including custom gaps, negative faces, subtracted pools, and highest/lowest rolls. Large numbered dice are allocated without enumerating their faces; bounded custom searches fail without changing the ordinary result.
+Avatar tests cover every nation boundary, all three tribes, Fire family boundaries, Earth village control, the inclusive 60 bending threshold, nation-specific elements, every Nomad element, and all combat style boundaries. They check IQ, six stat values in order, and that only applicable dice are drawn. No Air element is available.
 
-Creator tests cover shorthand, one-setting replacement, owner/DM checks, one-use consumption, lasting luck, cross-server user targeting, custom text-face forcing, impossible results, malformed requests, duplicate deliveries, persistence, transaction rollback, old-table isolation, corrupt-setting fallback, changed creator IDs, and bounded receipt storage.
+Creator tests cover direct part controls, optional Avatar spelling, force ranges, shifts, lasting luck, full-pool stats totals, modified outcomes changing subsequent branches, scoped controls ignoring ordinary rolls, cross-server player targeting, skipped conditional parts, duplicate character deliveries, request collisions, persistence, preserved 3.0 settings, and atomic rollback after a failed write. Existing custom dice, exact forcing, weighted/text faces, bonuses, keep-high/low, and creator authorization regression tests still pass.
 
-Transport tests serialize the actual one-command Discord tree, preserve the Gateway event dispatcher, check minimal intents, clear stale server commands, keep control state out of public replies, deliver private errors, handle blocked creator DMs, and respect Discord's message-size limit. Deployment tests validate the exact minimal bundle and Railway volume paths.
+Discord transport tests serialize the actual two-command tree (`/roll`, `/avatar`), retain minimal intents and the Gateway dispatcher, remove obsolete server commands, acknowledge before database work, keep private state and notices out of public replies, escape mentions, obey message-size limits, and reject slash commands in DMs without consuming a setting.
 
-Source and `bot.pyz --check` succeed without credentials or a Discord login. The Dockerfile uses the same bundle check. Live Railway startup and command registration are checked separately during deployment. Automated Discord transport tests use mocked interactions; they do not send test messages to players.
+Source and `bot.pyz --check` validate without credentials or Discord login. Deployment tests check the exact runtime bundle and Railway persistent-volume paths. Live Railway startup and command registration are checked separately during deployment. Automated Discord transport tests use mocked interactions; they do not send test messages to players.

@@ -48,9 +48,10 @@ async def validate():
         return size + sum(check(child, depth + 1) for child in node.get('options', []))
     for payload in payloads:
         assert check(payload) <= 8000, f"/{payload['name']} exceeds Discord's command size limit."
-    assert [payload['name'] for payload in payloads] == ['roll']
+    assert [payload['name'] for payload in payloads] == ['roll', 'avatar']
     assert [option['name'] for option in payloads[0]['options']] == ['dice', 'bonus', 'faces', 'keep']
-    print('Validated 1 slash command: /roll. No network login performed.')
+    assert payloads[1].get('options', []) == []
+    print('Validated 2 slash commands: /roll, /avatar. No network login performed.')
     await bot.close()
 
 

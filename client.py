@@ -1,11 +1,11 @@
-"""One slash command, one DM command, no game features or public admin commands."""
+"""Custom dice and Avatar creation, with private creator controls."""
 
 import logging
 import discord
 from discord import app_commands
 from . import __version__
 from .dice import MAX_SIDES, prepare
-from .display import private_messages, roll_messages, safe
+from .display import avatar_messages, private_messages, roll_messages, safe
 from .errors import RollError
 
 log = logging.getLogger(__name__)
@@ -38,16 +38,21 @@ class DiceBot(discord.Client):
                        faces: str | None = None, keep: str = 'all'):
             await self.run_roll(interaction, dice=dice, bonus=bonus, faces=faces, keep=keep)
 
+        @self.tree.command(name='avatar', description='Roll Avatar character IQ, six stats, origin, and bending or combat style.')
+        @app_commands.guild_only()
+        async def avatar(interaction: discord.Interaction):
+            await self.run_avatar(interaction)
+
     async def setup_hook(self):
         synced = await self.tree.sync()
-        log.info('Registered %s slash command globally (v%s); /roll ready.', len(synced), __version__)
+        log.info('Registered %s slash commands globally (v%s); /roll and /avatar ready.', len(synced), __version__)
 
     async def clean_guild_commands(self, guild):
         if guild.id in self.cleaned_guilds:
             return
         try:
             # Old releases could leave guild-specific game commands overriding
-            # the global tree. Remove them; this bot now has only global /roll.
+            # the global tree. Remove them; this bot uses global commands.
             self.tree.clear_commands(guild=guild)
             await self.tree.sync(guild=guild)
             self.cleaned_guilds.add(guild.id)
@@ -114,6 +119,19 @@ class DiceBot(discord.Client):
         interaction.extras['roll_deferred'] = True
         outcome = self.engine.roll_plan(interaction.user.id, interaction.guild_id, plan, request_id=interaction.id)
         parts = roll_messages(outcome['dice'], interaction.user.display_name)
+        await self.deliver_roll(interaction, parts, outcome)
+
+    async def run_avatar(self, interaction):
+        if not interaction.guild_id:
+            await self.error(interaction, 'Use /avatar in a server.')
+            return
+        await interaction.response.defer(thinking=True)
+        interaction.extras['roll_deferred'] = True
+        outcome = self.engine.avatar(interaction.user.id, interaction.guild_id, request_id=interaction.id)
+        parts = avatar_messages(outcome['character'], interaction.user.display_name)
+        await self.deliver_roll(interaction, parts, outcome)
+
+    async def deliver_roll(self, interaction, parts, outcome):
         await interaction.edit_original_response(content=parts[0], allowed_mentions=NO_MENTIONS)
         interaction.extras.pop('roll_deferred', None)
         for part in parts[1:]:

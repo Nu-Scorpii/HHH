@@ -1,3 +1,14 @@
+# Version 3.1.0
+
+- Added `/avatar`: IQ 1d20, six stat d20s, nation, conditional origin, bending check, and a Nomad element or non-bender combat style.
+- Implemented the supplied ranges with deterministic boundaries: Fire families 1–49 / 50–79 / 80–94 / 95–100; Pressure point 81–100. Bending starts at 60.
+- Added simple creator part controls, such as `!Rigger nation 30` and `!Rigger bending 100`, with the usual force, shift, luck, and cross-server user targeting.
+- Shared the stable roll-control code with `/roll`; Avatar-only settings never affect ordinary custom rolls.
+- Used modified outcomes for later decisions; skipped branches draw no dice. No Air bending is generated.
+- Kept one active setting. A skipped one-use part clears privately after the targeted character; lasting luck remains active.
+- Stored a whole character result, setting changes, and replay receipt in one transaction. Duplicate interactions return the same complete character.
+- Preserved existing version-3 settings and the Railway volume. Added 92 regression tests; all 231 automated tests pass.
+
 # Version 3.0.0
 
 - Replaced the full game bot with one public command: `/roll`.

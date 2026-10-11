@@ -65,3 +65,28 @@ def roll_messages(result, display_name='Player'):
 
 def private_messages(text):
     return ['🔒 **Creator controls**\n\n' + part for part in chunks(safe(text), 1900)]
+
+
+def avatar_messages(character, display_name='Player'):
+    name = ' '.join(str(display_name).split())[:80] or 'Player'
+    rolls = character['rolls']
+
+    def shown(label, value, part):
+        return f"**{label}:** {value} · `{rolls[part]['total']}` ({rolls[part]['expression']})"
+
+    lines = [f"🎲 **{safe(name)} · Avatar character**", '',
+             f"**IQ:** `{character['iq']}` (1d20)",
+             '**Stats:** ' + ' · '.join(f'`{value}`' for value in character['stats']) + ' (6d20)', '',
+             shown('Nation', character['nation'], 'nation')]
+    if character['tribe']:
+        lines.append(shown('Tribe', character['tribe'], 'tribe'))
+    if character['family']:
+        lines.append(shown('Family', character['family'], 'family'))
+    if character['fire_control'] is not None:
+        lines.append(shown('Village under Fire Nation control', 'Yes' if character['fire_control'] else 'No', 'control'))
+    lines.extend(('', shown('Bending', character['bending'] or 'Non-bender', 'bending')))
+    if 'element' in rolls:
+        lines.append(shown('Nomad element', character['bending'], 'element'))
+    if character['combat']:
+        lines.append(shown('Combat style', character['combat'], 'combat'))
+    return list(chunks('\n'.join(lines)))
